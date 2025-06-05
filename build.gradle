@@ -34,7 +34,9 @@ dependencies {
 
 	implementation 'dev.langchain4j:langchain4j:1.0.1'
 	implementation 'dev.langchain4j:langchain4j-open-ai:1.0.1'
-	implementation 'dev.langchain4j:langchain4j-google-ai:0.32.0'
+
+	implementation 'io.github.vaneproject:badwordfiltering:1.0.0'
+
 }
 
 tasks.named('test') {
