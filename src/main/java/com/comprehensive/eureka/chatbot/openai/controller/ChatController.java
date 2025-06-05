@@ -1,8 +1,8 @@
-package com.comprehensive.eureka.chatbot.controller;
+package com.comprehensive.eureka.chatbot.openai.controller;
 
-import com.comprehensive.eureka.chatbot.Service.ChatService;
-import com.comprehensive.eureka.chatbot.dto.ChatRequest;
-import com.comprehensive.eureka.chatbot.dto.ChatResponse;
+import com.comprehensive.eureka.chatbot.openai.service.ChatService;
+import com.comprehensive.eureka.chatbot.common.dto.ChatRequest;
+import com.comprehensive.eureka.chatbot.common.dto.ChatResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

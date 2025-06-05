@@ -1,7 +1,7 @@
-package com.comprehensive.eureka.chatbot.Service;
+package com.comprehensive.eureka.chatbot.openai.service;
 
-import com.comprehensive.eureka.chatbot.Repository.ChatMessageRepository;
-import com.comprehensive.eureka.chatbot.entity.ChatMessage;
+import com.comprehensive.eureka.chatbot.common.repository.ChatMessageRepository;
+import com.comprehensive.eureka.chatbot.common.entity.ChatMessage;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;

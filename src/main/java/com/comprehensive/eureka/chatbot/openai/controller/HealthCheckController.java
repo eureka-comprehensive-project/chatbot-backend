@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.controller;
+package com.comprehensive.eureka.chatbot.openai.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
