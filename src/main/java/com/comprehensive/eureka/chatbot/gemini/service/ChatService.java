@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.openai.service;
+package com.comprehensive.eureka.chatbot.gemini.service;
 
 public interface ChatService {
 

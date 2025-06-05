@@ -1,11 +1,11 @@
-package com.comprehensive.eureka.chatbot.openai.service;
+package com.comprehensive.eureka.chatbot.gemini.service;
 
-import com.comprehensive.eureka.chatbot.common.repository.ChatMessageRepository;
-import com.comprehensive.eureka.chatbot.common.entity.ChatMessage;
+import com.comprehensive.eureka.chatbot.gemini.repository.ChatMessageRepository;
+import com.comprehensive.eureka.chatbot.gemini.entity.ChatMessage;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
+import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import lombok.RequiredArgsConstructor;

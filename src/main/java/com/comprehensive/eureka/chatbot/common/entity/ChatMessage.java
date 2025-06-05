@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.openai.entity;
+package com.comprehensive.eureka.chatbot.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
