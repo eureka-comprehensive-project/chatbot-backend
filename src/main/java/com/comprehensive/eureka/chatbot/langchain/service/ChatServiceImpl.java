@@ -1,7 +1,7 @@
-package com.comprehensive.eureka.chatbot.openai.service;
+package com.comprehensive.eureka.chatbot.langchain.service;
 
-import com.comprehensive.eureka.chatbot.common.repository.ChatMessageRepository;
-import com.comprehensive.eureka.chatbot.common.entity.ChatMessage;
+import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
+import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;
@@ -25,11 +25,11 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMemoryStore memoryStore;
     private final TokenCountEstimator tokenCountEstimator;
 
-    private final Map<String, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
+    private final Map<Long, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
 
     @Override
     @Transactional
-    public String generateReply(String userId, String message) {
+    public String generateReply(Long userId, String message) {
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id ->
                 TokenWindowChatMemory.builder()
                         .id(id)
@@ -54,9 +54,9 @@ public class ChatServiceImpl implements ChatService {
         return response;
     }
 
-    private void saveChatMessage(String userId, String message, boolean isBot) {
+    private void saveChatMessage(Long userId, String message, boolean isBot) {
         ChatMessage chatMessage = new ChatMessage();
-        chatMessage.setEmail(userId);
+        chatMessage.setUserId(userId);
         chatMessage.setMessage(message);
         chatMessage.setBot(isBot);
         chatMessage.setTimestamp(LocalDateTime.now());

@@ -7,8 +7,10 @@
 <body>
 <h1>Send Message</h1>
 <form id="messageForm">
+    <label for="userId">userId:</label>
+    <input type="text" id="userId" name="userId" required /> <br>
     <label for="message">Message:</label>
-    <input type="text" id="message" name="message" required />
+    <input type="text" id="message" name="message" required /> <br>
     <button type="submit">Send</button>
 </form>
 
@@ -16,6 +18,7 @@
     document.getElementById('messageForm').addEventListener('submit', function (event) {
         event.preventDefault(); // 기본 form 전송 방지
 
+        const userId = document.getElementById('userId').value;
         const message = document.getElementById('message').value;
 
         fetch('/api/chat', {
@@ -23,7 +26,12 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ message: message })
+            body: JSON.stringify(
+                {
+                    userId: userId,
+                    message: message
+                }
+            )
         })
             .then(response => response.text())
             .then(data => {

@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.common.entity;
+package com.comprehensive.eureka.chatbot.langchain.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -12,7 +12,7 @@ public class ChatMessage {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String email;
+    private Long userId;
 
     @Lob
     private String message;

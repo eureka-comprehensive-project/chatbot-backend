@@ -1,8 +1,8 @@
-package com.comprehensive.eureka.chatbot.openai.controller;
+package com.comprehensive.eureka.chatbot.langchain.controller;
 
-import com.comprehensive.eureka.chatbot.openai.service.ChatService;
-import com.comprehensive.eureka.chatbot.common.dto.ChatRequest;
-import com.comprehensive.eureka.chatbot.common.dto.ChatResponse;
+import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
+import com.comprehensive.eureka.chatbot.langchain.dto.ChatRequestDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.ChatResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,8 +17,8 @@ public class ChatController {
     private final ChatService chatService;
 
     @PostMapping
-    public ChatResponse chat(@RequestBody ChatRequest request) {
+    public ChatResponseDto chat(@RequestBody ChatRequestDto request) {
         String reply = chatService.generateReply(request.getUserId(), request.getMessage());
-        return new ChatResponse(reply);
+        return new ChatResponseDto(reply);
     }
 }
