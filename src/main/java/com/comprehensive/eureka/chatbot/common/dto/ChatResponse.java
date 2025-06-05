@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.dto;
+package com.comprehensive.eureka.chatbot.openai.dto;
 
 import lombok.Data;
 
