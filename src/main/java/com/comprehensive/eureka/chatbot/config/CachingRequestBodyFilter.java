@@ -9,7 +9,7 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-@Component
+
 public class CachingRequestBodyFilter implements Filter {
 
     @Override

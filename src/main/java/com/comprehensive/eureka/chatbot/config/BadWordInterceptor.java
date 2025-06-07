@@ -30,8 +30,8 @@ public class BadWordInterceptor implements HandlerInterceptor {
 
                                 if (badWordFiltering1.check(message)) {
                                         System.out.println("비속어 감지됨");
-                                        // response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                                        // return false;
+                                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                                         return false;
                                 }
 
                         } catch (Exception e) {
