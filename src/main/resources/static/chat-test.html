@@ -9,6 +9,7 @@
         .msg { margin: 5px 0; }
         .user { color: blue; }
         .bot { color: green; }
+        .recording { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -21,12 +22,14 @@
 <div id="chat-section" style="display:none; margin-top: 20px;">
     <div id="chat-box"></div>
 
-    <input type="text" id="messageInput" placeholder="메시지를 입력하세요" style="width: 80%;" />
-    <button onclick="sendMessage()">전송</button>
+    <button id="sttButton" onclick="toggleSTT()">🎤 음성 입력 시작</button>
+    <div id="status" class="recording"></div>
 </div>
 
 <script>
     let currentUserId = null;
+    let recognition = null;
+    let isRecognizing = false;
 
     function setUserId() {
         const input = document.getElementById("userId").value;
@@ -39,36 +42,87 @@
         document.getElementById("userId").disabled = true;
     }
 
-    async function sendMessage() {
-        const message = document.getElementById("messageInput").value;
-        if (!message) return;
-
+    async function sendMessageFromSTT(message) {
         const chatBox = document.getElementById("chat-box");
         chatBox.innerHTML += `<div class="msg user"><b>🙍 사용자:</b> ${message}</div>`;
-        document.getElementById("messageInput").value = "";
 
-        const response = await fetch("http://localhost:8082/chatbot/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: currentUserId, message: message })
-        });
+        try {
+            const response = await fetch("http://localhost:8082/chatbot/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: currentUserId, message: message }) // <- 여기에 message 포함
+            });
 
-        const data = await response.json();
-        chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> ${data.response}</div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
+            if (response.status === 400) {
+                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 부적절한 표현이 감지되어 답변할 수 없습니다.</div>`;
+            } else if (!response.ok) {
+                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 오류가 발생했습니다. 다시 시도해주세요.</div>`;
+            } else {
+                const data = await response.json();
+                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> ${data.response}</div>`;
+            }
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (error) {
+            chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 서버에 연결할 수 없습니다.</div>`;
+        }
     }
 
-    // 엔터 키로 메시지 전송
-    document.addEventListener("DOMContentLoaded", () => {
-        const input = document.getElementById("messageInput");
-        input.addEventListener("keydown", function (e) {
-            if (e.key === "Enter" && !e.isComposing) { // 한글 조합 중이면 막기
-                e.preventDefault(); // 폼 제출 방지
-                sendMessage();
-            }
-        });
-    });
+    let finalTranscript = "";
 
+    function toggleSTT() {
+        if (!('webkitSpeechRecognition' in window)) {
+            alert("이 브라우저는 음성 인식을 지원하지 않습니다 (크롬에서만 작동).");
+            return;
+        }
+
+        const status = document.getElementById("status");
+        const button = document.getElementById("sttButton");
+
+        if (!recognition) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = "ko-KR";
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = (event) => {
+                finalTranscript = event.results[0][0].transcript.trim();
+            };
+
+            recognition.onerror = function (event) {
+                console.error("음성 인식 오류:", event.error);
+                alert("음성 인식 중 오류가 발생했습니다: " + event.error);
+                stopRecognition();
+            };
+
+            recognition.onend = function () {
+                if (finalTranscript !== "") {
+                    sendMessageFromSTT(finalTranscript);
+                    finalTranscript = ""; // 다음 인식 준비
+                } else {
+                    alert("음성 인식 결과가 없습니다.");
+                }
+                stopRecognition();
+            };
+        }
+
+        if (!isRecognizing) {
+            finalTranscript = ""; // 새 인식을 위해 초기화
+            recognition.start();
+            isRecognizing = true;
+            button.textContent = "🛑 음성 입력 중지";
+            status.textContent = "음성 인식 중...";
+        } else {
+            recognition.stop();
+        }
+    }
+
+
+    function stopRecognition() {
+        isRecognizing = false;
+        document.getElementById("sttButton").textContent = "🎤 음성 입력 시작";
+        document.getElementById("status").textContent = "";
+    }
 </script>
 </body>
 </html>

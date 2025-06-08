@@ -25,21 +25,29 @@
         const userId = document.getElementById('userid').value;
         const message = document.getElementById('message').value;
 
-        fetch('/api/chat', {
+        fetch('chatbot/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ userId: userId, message: message })
         })
-            .then(response => response.text())
-            .then(data => {
-                alert('서버 응답: ' + data);
+            .then(async response => {
+                if (response.status === 400) {
+                    alert('⚠️ 부적절한 표현이 감지되어 답변할 수 없습니다.');
+                } else if (!response.ok) {
+                    alert('🚫 오류가 발생했습니다. 다시 시도해주세요.');
+                } else {
+                    const data = await response.text();
+                    alert('서버 응답: ' + data);
+                }
             })
             .catch(error => {
                 console.error('에러 발생:', error);
+                alert('❌ 서버에 연결할 수 없습니다.');
             });
     });
 </script>
+
 </body>
 </html>
