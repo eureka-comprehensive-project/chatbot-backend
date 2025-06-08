@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.openai.controller;
+package com.comprehensive.eureka.chatbot.langchain.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TestController {
 
-    @GetMapping("/hello")
+    @GetMapping("/chatbot/hello")
     public String hello() {
         return "Hello World";
     }
