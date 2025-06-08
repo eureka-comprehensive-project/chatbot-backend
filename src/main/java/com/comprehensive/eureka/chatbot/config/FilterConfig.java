@@ -13,7 +13,7 @@ public class FilterConfig {
         FilterRegistrationBean<Filter> registrationBean = new FilterRegistrationBean<>();
         registrationBean.setFilter(new CachingRequestBodyFilter());
         registrationBean.setOrder(0); // 필터 우선순위 가장 높게
-        registrationBean.addUrlPatterns("/api/*"); // 적용할 URL 패턴 설정
+        registrationBean.addUrlPatterns("/chatbot/api/chat"); // 적용할 URL 패턴 설정
         return registrationBean;
     }
 }
