@@ -6,6 +6,7 @@ import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageReposito
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.chain.ConversationalChain;
+import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
@@ -29,29 +30,28 @@ public class ChatServiceImpl implements ChatService {
     private final TokenCountEstimator tokenCountEstimator;
     private final ObjectMapper objectMapper;
 
+    // 사용자별 메모리 관리
     private final Map<Long, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
-    private final Map<Long, Boolean> userPromptInjected = new ConcurrentHashMap<>();
 
     @Override
     @Transactional
     public String generateReply(Long userId, String message) {
-        ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id ->
-                TokenWindowChatMemory.builder()
-                        .id(id)
-                        .maxTokens(1000, tokenCountEstimator)
-                        .chatMemoryStore(memoryStore)
-                        .build()
-        );
+        ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
+            TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
+                    .id(id)
+                    .maxTokens(1000, tokenCountEstimator)
+                    .chatMemoryStore(memoryStore)
+                    .build();
+
+            // System 역할 명확하게 지정
+            newMemory.add(SystemMessage.from(systemPrompt()));
+            return newMemory;
+        });
 
         ConversationalChain chain = ConversationalChain.builder()
                 .chatModel(baseOpenAiModel)
                 .chatMemory(memory)
                 .build();
-
-        // 최초 1회만 system 메시지 삽입
-        if (userPromptInjected.putIfAbsent(userId, true) == null) {
-            chain.execute(systemPrompt());
-        }
 
         // 사용자 메시지 저장
         saveChatMessage(userId, message, false);
@@ -63,8 +63,13 @@ public class ChatServiceImpl implements ChatService {
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
+                // JSON 추출용 프롬프트 메시지 삽입후, JSON 추출
                 String json = chain.execute(jsonExtractionPrompt());
+                System.out.println("[DEBUG] Extracted JSON from GPT:\n" + json);
+
                 TelecomProfile profile = objectMapper.readValue(json, TelecomProfile.class);
+
+                // 요금제 추천 모듈로 JSON 보내고, 추천 요금제 받아오기
                 PlanRecommendationDto plan = sendToRecommendationModule(profile);
 
                 String finalReply = String.format(
@@ -113,7 +118,16 @@ public class ChatServiceImpl implements ChatService {
     private String jsonExtractionPrompt() {
         return """
             지금까지의 대화를 기반으로 사용자의 통신 성향 정보를 아래 JSON 형식에 맞게 정리해 주세요.
-            ```
+            
+            - 모든 항목은 정확한 숫자(int) 또는 문자열 형식에 맞춰 작성해 주세요.
+            - 문자 개수(smsCount)가 '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
+            - 필요한 데이터 사용량(dataUsageGB)도 무제한일 경우 숫자 99999로 표현하세요.
+            - 통화 시간(callTimeMin)도 무제한일 경우 숫자 99999로 표현하세요.
+            - gender는 반드시 "남" 또는 "여" 중 하나의 문자열이어야 합니다.
+            - preferredServices는 문자열 배열로 작성하세요.
+            
+            아래 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
+            
             {
               "dataUsageGB": 15,
               "callTimeMin": 300,
@@ -122,8 +136,6 @@ public class ChatServiceImpl implements ChatService {
               "gender": "남",
               "preferredServices": ["YouTube", "Melon"]
             }
-            ```
-            위 형식 그대로 정확한 JSON으로만 응답하세요.
             """;
     }
 
