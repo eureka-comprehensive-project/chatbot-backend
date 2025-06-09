@@ -17,11 +17,13 @@ public class LangChainConfig {
     @Value("${openai.api.key}")
     private String openAiKey;
 
+    private String modelName = "gpt-4.1-mini";  // gpt-3.5-turbo (구형), gpt-4.1-nano (속도 빠른 모델)
+
     @Bean
     public OpenAiChatModel openAiChatModel() {
         return OpenAiChatModel.builder()
                 .apiKey(openAiKey)
-                .modelName("gpt-3.5-turbo")
+                .modelName(modelName)
                 .build();
     }
 
@@ -32,7 +34,7 @@ public class LangChainConfig {
 
     @Bean
     public TokenCountEstimator tokenCountEstimator() {
-        return new OpenAiTokenCountEstimator("gpt-3.5-turbo");
+        return new OpenAiTokenCountEstimator(modelName);
     }
 
     @Bean
