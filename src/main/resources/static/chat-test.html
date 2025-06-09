@@ -22,6 +22,8 @@
 <div id="chat-section" style="display:none; margin-top: 20px;">
     <div id="chat-box"></div>
 
+    <input type="text" id="messageInput" placeholder="메시지를 입력하세요" style="width: 80%;" />
+    <button onclick="sendMessage()">전송</button>
     <button id="sttButton" onclick="toggleSTT()">🎤 음성 입력 시작</button>
     <div id="status" class="recording"></div>
 </div>
@@ -30,6 +32,7 @@
     let currentUserId = null;
     let recognition = null;
     let isRecognizing = false;
+    let finalTranscript = "";
 
     function setUserId() {
         const input = document.getElementById("userId").value;
@@ -43,32 +46,49 @@
     }
 
     async function sendMessageFromSTT(message) {
-        const chatBox = document.getElementById("chat-box");
-        chatBox.innerHTML += `<div class="msg user"><b>🙍 사용자:</b> ${message}</div>`;
+        displayMessage("user", message);
+        await sendToServer(message);
+    }
 
+    async function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        displayMessage("user", message);
+        messageInput.value = "";
+        await sendToServer(message);
+    }
+
+    function displayMessage(sender, message) {
+        const chatBox = document.getElementById("chat-box");
+        const senderLabel = sender === "user" ? "🙍 사용자" : "🤖 챗봇";
+        const senderClass = sender === "user" ? "user" : "bot";
+        chatBox.innerHTML += `<div class="msg ${senderClass}"><b>${senderLabel}:</b> ${message}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendToServer(message) {
+        const chatBox = document.getElementById("chat-box");
         try {
             const response = await fetch("http://localhost:8082/chatbot/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: currentUserId, message: message }) // <- 여기에 message 포함
+                body: JSON.stringify({ userId: currentUserId, message })
             });
 
             if (response.status === 400) {
-                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 부적절한 표현이 감지되어 답변할 수 없습니다.</div>`;
+                displayMessage("bot", "부적절한 표현이 감지되어 답변할 수 없습니다.");
             } else if (!response.ok) {
-                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 오류가 발생했습니다. 다시 시도해주세요.</div>`;
+                displayMessage("bot", "오류가 발생했습니다. 다시 시도해주세요.");
             } else {
                 const data = await response.json();
-                chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> ${data.response}</div>`;
+                displayMessage("bot", data.response);
             }
-
-            chatBox.scrollTop = chatBox.scrollHeight;
         } catch (error) {
-            chatBox.innerHTML += `<div class="msg bot"><b>🤖 챗봇:</b> 서버에 연결할 수 없습니다.</div>`;
+            displayMessage("bot", "서버에 연결할 수 없습니다.");
         }
     }
-
-    let finalTranscript = "";
 
     function toggleSTT() {
         if (!('webkitSpeechRecognition' in window)) {
@@ -98,7 +118,7 @@
             recognition.onend = function () {
                 if (finalTranscript !== "") {
                     sendMessageFromSTT(finalTranscript);
-                    finalTranscript = ""; // 다음 인식 준비
+                    finalTranscript = "";
                 } else {
                     alert("음성 인식 결과가 없습니다.");
                 }
@@ -107,7 +127,7 @@
         }
 
         if (!isRecognizing) {
-            finalTranscript = ""; // 새 인식을 위해 초기화
+            finalTranscript = "";
             recognition.start();
             isRecognizing = true;
             button.textContent = "전송하기";
@@ -117,12 +137,22 @@
         }
     }
 
-
     function stopRecognition() {
         isRecognizing = false;
         document.getElementById("sttButton").textContent = "🎤 음성 입력 시작";
         document.getElementById("status").textContent = "";
     }
+
+    // 엔터 키로 텍스트 전송
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById("messageInput");
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !e.isComposing) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    });
 </script>
 </body>
 </html>
