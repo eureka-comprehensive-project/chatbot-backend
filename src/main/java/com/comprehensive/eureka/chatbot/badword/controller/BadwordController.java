@@ -1,9 +1,9 @@
 package com.comprehensive.eureka.chatbot.badword.controller;
 
-import com.comprehensive.eureka.chatbot.badword.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
 import com.comprehensive.eureka.chatbot.badword.dto.response.BadwordResponse;
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
+import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

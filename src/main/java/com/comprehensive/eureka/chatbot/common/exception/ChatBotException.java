@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.exception;
+package com.comprehensive.eureka.chatbot.common.exception;
 
 import lombok.Getter;
 
