@@ -2,12 +2,10 @@ package com.comprehensive.eureka.chatbot.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vane.badwordfiltering.BadWordFiltering;
-import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
@@ -18,7 +16,7 @@ import java.util.*;
 @Component
 public class BadWordInterceptor implements HandlerInterceptor {
 
-        BadWordFiltering badWordFilter = new BadWordFiltering();
+        private final BadWordFiltering badWordFilter;
         @Override
         public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
                 if (request instanceof ContentCachingRequestWrapper wrapper) {
@@ -27,13 +25,6 @@ public class BadWordInterceptor implements HandlerInterceptor {
                         try {
                                 Map<String, String> map = objectMapper.readValue(body, Map.class);
                                 String message = map.get("message");
-
-                                //api 호출 ( admin 모듈에서 가져오기 )
-                                List<String> list = new ArrayList<>(); //list
-                                //list -> set
-                                Set<String> set = new HashSet<>(list);
-                                //동기화
-                                badWordFilter.addAll(set);
 
                                 if (badWordFilter.check(message)) {
                                         System.out.println("비속어 감지됨");
