@@ -4,7 +4,6 @@ import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
 import com.comprehensive.eureka.chatbot.badword.dto.response.BadwordResponse;
 import com.vane.badwordfiltering.BadWordFiltering;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,9 +18,8 @@ public class BadwordServiceImpl implements BadwordService {
     // CREATE
     @Override
     public BadwordResponse createBadWord(BadwordRequest badwordRequest) {
-        System.out.println("inservice " +badwordRequest.getBadword());
+        System.out.println(badwordRequest.getBadword() + "단어가 금칙어 리스트에 추가 되었습니다.");
         badwordFiltering.add(badwordRequest.getBadword());
-//        badwordFiltering.addAll(badwordRequest.getBadwords());
         return new BadwordResponse(badwordRequest.getBadword(), "단어가 추가되었습니다.");
     }
 
