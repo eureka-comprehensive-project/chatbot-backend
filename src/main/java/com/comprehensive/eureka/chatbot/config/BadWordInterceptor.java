@@ -47,8 +47,11 @@ public class BadWordInterceptor implements HandlerInterceptor {
                                         .message(message)
                                         .snippets(List.of("asdf", "asdf"))
                                         .build();
+                                List<String> matchingWords = new ArrayList<>();
+                                if(badWordFilter.stream().anyMatch(message::contains)){
 
-                                if (badWordFilter.check(message)) {
+                                }
+                                if (badWordFilter.blankCheck(message)) {
                                         System.out.println("비속어 감지됨");
                                         adminClient.post()
                                                         .uri("/admin/forbidden-words/")
