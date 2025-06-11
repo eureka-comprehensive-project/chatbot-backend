@@ -16,7 +16,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(
                         "http://localhost:5500",
                         "http://127.0.0.1:5500",
-                        "https://visiblego.com"
+                        "https://visiblego.com",
+                        "https://www.visiblego.com"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
