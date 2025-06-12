@@ -49,25 +49,27 @@ public class BadWordInterceptor implements HandlerInterceptor {
                                 //2.get chatting id
 
                                 //3. request구성
+                                List<String> matchingWords = new ArrayList<>();
                                 BadwordRecordRequest badwordRecordRequest = BadwordRecordRequest.builder()
                                         .userId(0L)
                                         .chatMessageId(0L)
                                         .forbiddenWords(List.of("나쁜말1", "나쁜말2"))
                                         .build();
-                                List<String> matchingWords = new ArrayList<>();
 
-                                //4.
-                                adminClient.post()
-                                        .uri("https://visiblego.com/admin/forbidden-words/chats")
-                                        .bodyValue(badwordRecordRequest)
-                                        .retrieve()
-                                        .bodyToMono(Void.class)
-                                        .subscribe(
-                                                result -> System.out.println("요청 성공"),
-                                                error -> System.err.println("요청 실패: " + error.getMessage())
-                                        );
+                                if(badWordFilter.blankCheck(message)){
+                                        //4.
+                                        adminClient.post()
+                                                .uri("https://visiblego.com/admin/forbidden-words/chats")
+                                                .bodyValue(badwordRecordRequest)
+                                                .retrieve()
+                                                .bodyToMono(Void.class)
+                                                .subscribe(
+                                                        result -> System.out.println("요청 성공"),
+                                                        error -> System.err.println("요청 실패: " + error.getMessage())
+                                                );
                                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                                         return false;
+                                }
                         } catch (Exception e) {
                                 System.out.println("JSON 파싱 실패: " + e.getMessage());
                         }
