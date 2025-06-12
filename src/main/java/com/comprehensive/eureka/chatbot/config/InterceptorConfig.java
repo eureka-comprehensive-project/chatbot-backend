@@ -13,7 +13,7 @@
      @Override
      public void addInterceptors(InterceptorRegistry registry) {
          registry.addInterceptor(badwordInterceptor)
-                 .addPathPatterns("/**")
+                 .addPathPatterns("/chatbot/api/chat/**")
                  .excludePathPatterns("");
      }
  }

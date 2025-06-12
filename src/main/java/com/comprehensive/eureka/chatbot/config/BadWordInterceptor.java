@@ -5,6 +5,7 @@ import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
 import com.comprehensive.eureka.chatbot.common.dto.UserInfoResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vane.badwordfiltering.BadWordFiltering;
+import io.micrometer.common.lang.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.nio.charset.StandardCharsets;
@@ -35,31 +37,37 @@ public class BadWordInterceptor implements HandlerInterceptor {
                         try {
                                 Map<String, String> map = objectMapper.readValue(body, Map.class);
                                 String message = map.get("message");
-                                //get userId
-                                Long userId = 0L;
-                                userClient.get()
-                                        .uri("/user/")
-                                        .retrieve()
-                                        .bodyToMono(UserInfoResponseDto.class);
+                                //1.get userId
+//                                Long userId = 0L;
+//                                userClient.get()
+//                                        .uri("visible.com/user/")
+//                                        .retrieve()
+//                                        .bodyToMono(UserInfoResponseDto.class);
+//                                if(badWordFilter.stream().anyMatch(message::contains)){
+//                                }
 
+                                //2.get chatting id
+
+                                //3. request구성
                                 BadwordRecordRequest badwordRecordRequest = BadwordRecordRequest.builder()
-                                        .userId(userId)
-                                        .message(message)
-                                        .snippets(List.of("asdf", "asdf"))
+                                        .userId(0L)
+                                        .chatMessageId(0L)
+                                        .forbiddenWords(List.of("나쁜말1", "나쁜말2"))
                                         .build();
                                 List<String> matchingWords = new ArrayList<>();
-                                if(badWordFilter.stream().anyMatch(message::contains)){
 
-                                }
-                                if (badWordFilter.blankCheck(message)) {
-                                        System.out.println("비속어 감지됨");
-                                        adminClient.post()
-                                                        .uri("/admin/forbidden-words/")
-                                                        .bodyValue(badwordRecordRequest);
-                                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                                         return false;
-                                }
-
+                                //4.
+                                adminClient.post()
+                                        .uri("https://visiblego.com/admin/forbidden-words/chats")
+                                        .bodyValue(badwordRecordRequest)
+                                        .retrieve()
+                                        .bodyToMono(Void.class)
+                                        .subscribe(
+                                                result -> System.out.println("요청 성공"),
+                                                error -> System.err.println("요청 실패: " + error.getMessage())
+                                        );
+                                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                                        return false;
                         } catch (Exception e) {
                                 System.out.println("JSON 파싱 실패: " + e.getMessage());
                         }
@@ -67,7 +75,11 @@ public class BadWordInterceptor implements HandlerInterceptor {
 
                 return true;
         }
+        @Override
+        public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+                               @Nullable ModelAndView modelAndView) throws Exception {
+                System.out.println("isCommitted: " + response.isCommitted());
+                System.out.println("MyInterceptor2 >>> posthandle " + request.getRequestURI());
 
-
-
+        }
 }
