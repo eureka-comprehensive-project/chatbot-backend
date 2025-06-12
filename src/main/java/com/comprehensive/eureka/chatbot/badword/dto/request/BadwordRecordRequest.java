@@ -10,7 +10,7 @@ import java.util.List;
 @Builder
 public class BadwordRecordRequest {
     Long userId;
-    String message;
-    List<String> snippets;
+    Long chatMessageId;
+    List<String> forbiddenWords;
 
 }
