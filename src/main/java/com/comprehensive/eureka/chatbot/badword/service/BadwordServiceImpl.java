@@ -19,7 +19,13 @@ public class BadwordServiceImpl implements BadwordService {
     @Override
     public BadwordResponse createBadWord(BadwordRequest badwordRequest) {
         System.out.println(badwordRequest.getBadword() + "단어가 금칙어 리스트에 추가 되었습니다.");
-        badwordFiltering.add(badwordRequest.getBadword());
+        try{
+            badwordFiltering.add(badwordRequest.getBadword());
+        }catch(Exception e){
+            e.printStackTrace();
+            System.out.println("chatbot module : 금칙어 리스트에 단어 추가하는 중에 오류가 발생");
+        }
+
         return new BadwordResponse(badwordRequest.getBadword(), "단어가 추가되었습니다.");
     }
 
