@@ -9,7 +9,7 @@ public interface PromptService {
     PromptDto createPrompt(PromptDto promptDto);
 
     List<PromptDto> getAllPrompts();
-    PromptDto getPromptBySentimentName(String name);
+    PromptDto getPromptBySentimentCode(Integer sentimentCode);
 
     PromptDto updatePrompt(PromptDto promptDto);
     void deletePrompt(Long promptId);
