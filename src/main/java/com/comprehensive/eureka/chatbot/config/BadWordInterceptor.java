@@ -1,7 +1,9 @@
 package com.comprehensive.eureka.chatbot.config;
 
-import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRecordRequest;
+
 import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
+import com.comprehensive.eureka.chatbot.badword.dto.request.UserForbiddenWordsChatCreateRequestDto;
+import com.comprehensive.eureka.chatbot.client.AdminClient;
 import com.comprehensive.eureka.chatbot.common.dto.UserInfoResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vane.badwordfiltering.BadWordFiltering;
@@ -24,11 +26,11 @@ import java.util.*;
 public class BadWordInterceptor implements HandlerInterceptor {
 
         private final BadWordFiltering badWordFilter;
-        @Qualifier("adminClient")
-        private final WebClient adminClient;
-        @Qualifier("userClient")
-        private final WebClient userClient;
-
+//        @Qualifier("adminClient")
+//        private final WebClient client;
+////        @Qualifier("userClient")
+////        private final WebClient userClient;
+        private final AdminClient adminClient;
         @Override
         public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
                 if (request instanceof ContentCachingRequestWrapper wrapper) {
@@ -37,44 +39,36 @@ public class BadWordInterceptor implements HandlerInterceptor {
                         try {
                                 Map<String, String> map = objectMapper.readValue(body, Map.class);
                                 String message = map.get("message");
+
                                 //1.get userId
-//                                Long userId = 0L;
-//                                userClient.get()
-//                                        .uri("visible.com/user/")
-//                                        .retrieve()
-//                                        .bodyToMono(UserInfoResponseDto.class);
-//                                if(badWordFilter.stream().anyMatch(message::contains)){
-//                                }
+//                                Long userId = Long.valueOf(map.get("userId"));
 
                                 //2.get chatting id
 
                                 //3. request구성
                                 List<String> matchingWords = new ArrayList<>();
-                                BadwordRecordRequest badwordRecordRequest = BadwordRecordRequest.builder()
-                                        .userId(0L)
-                                        .chatMessageId(0L)
-                                        .forbiddenWords(List.of("나쁜말1", "나쁜말2"))
+                                matchingWords.add("씨발");
+                                matchingWords.add("씨발");
+
+                                UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
+                                        .userId(123L)
+                                        .chatMessageId(456L)
+                                        .forbiddenWords(Arrays.asList("씨발", "씨발"))
                                         .build();
 
                                 if(badWordFilter.blankCheck(message)){
                                         //4.
-                                        adminClient.post()
-                                                .uri("https://visiblego.com/admin/forbidden-words/chats")
-                                                .bodyValue(badwordRecordRequest)
-                                                .retrieve()
-                                                .bodyToMono(Void.class)
-                                                .subscribe(
-                                                        result -> System.out.println("요청 성공"),
-                                                        error -> System.err.println("요청 실패: " + error.getMessage())
-                                                );
+                                        ObjectMapper mapper = new ObjectMapper();
+                                        String json = mapper.writeValueAsString(userForbiddenWordsChatCreateRequestDto);
+                                        System.out.println("Request JSON = " + json);
+                                        adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
                                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                                         return false;
                                 }
                         } catch (Exception e) {
-                                System.out.println("JSON 파싱 실패: " + e.getMessage());
+                                System.out.println("비속어 감지 처리중 에러: " + e.getMessage());
                         }
                 }
-
                 return true;
         }
         @Override

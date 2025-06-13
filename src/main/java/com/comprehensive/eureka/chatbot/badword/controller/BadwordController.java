@@ -25,4 +25,5 @@ public class BadwordController {
     public void deleteBadword(@PathVariable String word) {
         badwordServiceImpl.deleteBadWordResponse(word);
     }
+
 }
