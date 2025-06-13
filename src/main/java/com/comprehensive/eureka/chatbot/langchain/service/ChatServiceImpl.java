@@ -68,8 +68,13 @@ public class ChatServiceImpl implements ChatService {
         saveChatMessage(userId, message, false);
         if(isBad){
             Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
-            badWordService.sendBadwordRecord(userId,chatMessageId,message);
-            return "부적절한 표현이 감지되어 답변할 수 없습니다. 히히";
+            try{
+                badWordService.sendBadwordRecord(userId,chatMessageId,message);
+            }catch(Exception e){
+                return("지금 현재 admin 모듈의 금칙어와 chatbot모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요");
+            }
+
+            return "부적절한 표현이 감지되어 답변할 수 없습니다.";
         }
         // GPT 응답
         String response = chain.execute(message);
