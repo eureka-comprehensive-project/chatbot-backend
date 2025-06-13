@@ -8,5 +8,5 @@ public interface PromptRepository extends JpaRepository<Prompt, Long> {
 
     boolean existsByName(String name);
 
-    Prompt findByName(String name);
+    Prompt findBySentimentCode(int sentimentCode);
 }
