@@ -1,5 +1,6 @@
 package com.comprehensive.eureka.chatbot.langchain.service;
 
+import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.langchain.dto.PlanRecommendationDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.TelecomProfile;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
@@ -32,7 +33,7 @@ public class ChatServiceImpl implements ChatService {
 
     // 사용자별 메모리 관리
     private final Map<Long, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
-
+    private final BadwordServiceImpl badWordService;
     @Override
     @Transactional
     public String generateReply(Long userId, String message) {
@@ -48,6 +49,16 @@ public class ChatServiceImpl implements ChatService {
             return newMemory;
         });
 
+        boolean isBad = false;
+        try{
+            if(badWordService.checkBadWord(message)){
+                isBad = true;
+            }
+        }catch(Exception e){
+            return "부적절한 표현 감지 중 에러 발생";
+        }
+
+
         ConversationalChain chain = ConversationalChain.builder()
                 .chatModel(baseOpenAiModel)
                 .chatMemory(memory)
@@ -55,7 +66,11 @@ public class ChatServiceImpl implements ChatService {
 
         // 사용자 메시지 저장
         saveChatMessage(userId, message, false);
-
+        if(isBad){
+            Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
+            badWordService.sendBadwordRecord(userId,chatMessageId,message);
+            return "부적절한 표현이 감지되어 답변할 수 없습니다. 히히";
+        }
         // GPT 응답
         String response = chain.execute(message);
         saveChatMessage(userId, response, true);

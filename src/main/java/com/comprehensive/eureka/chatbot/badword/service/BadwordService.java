@@ -13,4 +13,5 @@ public interface BadwordService {
     void deleteBadWordResponse(String word);
 
     boolean checkBadWord(String message) throws JsonProcessingException;
+    void sendBadwordRecord(Long userId, Long chatMesageId, String message);
 }
