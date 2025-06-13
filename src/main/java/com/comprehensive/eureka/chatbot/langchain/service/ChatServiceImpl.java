@@ -13,10 +13,17 @@ import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +37,26 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMemoryStore memoryStore;
     private final TokenCountEstimator tokenCountEstimator;
     private final ObjectMapper objectMapper;
+
+    private String systemPrompt;
+    private String jsonExtractionPrompt;
+
+    @PostConstruct
+    public void loadPrompts() {
+        try {
+            Resource systemResource = new ClassPathResource("prompts/system-prompt.txt");
+            try (InputStream in = systemResource.getInputStream()) {
+                this.systemPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            Resource jsonResource = new ClassPathResource("prompts/json-extraction-prompt.txt");
+            try (InputStream in = jsonResource.getInputStream()) {
+                this.jsonExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("프롬프트 로드 중 오류 발생", e);
+        }
+    }
 
     // 사용자별 메모리 관리
     private final Map<Long, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
@@ -117,46 +144,11 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private String systemPrompt() {
-        return """
-            당신은 고객의 통신 성향을 파악하여 맞춤 요금제를 추천하는 AI 챗봇 중에서, 고객의 통신 성향을 파악하기 위해 대화를 이어나가는 역할을 담당합니다.
-
-            다음 정보를 사용자에게 질문을 통해 하나씩 파악해 주세요:
-            - 월간 데이터 사용량 (GB)
-            - 통화 시간 (분)
-            - 문자 개수
-            - 나이
-            - 성별
-            - 선호하는 부가 서비스 (예: YouTube, Netflix, Melon 등)
-
-            모든 정보를 수집했다고 판단되면, 아래 문장을 사용자에게 정확히 출력하세요:
-            "통신성향을 모두 파악했습니다. 이제 요금제를 추천해드리겠습니다."
-
-            그 다음에는 아무 말도 하지 마세요. Java 백엔드가 이후 처리를 진행합니다.
-        """;
+        return systemPrompt;
     }
 
     private String jsonExtractionPrompt() {
-        return """
-            지금까지의 대화를 기반으로 사용자의 통신 성향 정보를 아래 JSON 형식에 맞게 정리해 주세요.
-            
-            - 모든 항목은 정확한 숫자(int) 또는 문자열 형식에 맞춰 작성해 주세요.
-            - 문자 개수(smsCount)가 '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
-            - 필요한 데이터 사용량(dataUsageGB)도 무제한일 경우 숫자 99999로 표현하세요.
-            - 통화 시간(callTimeMin)도 무제한일 경우 숫자 99999로 표현하세요.
-            - gender는 반드시 "남" 또는 "여" 중 하나의 문자열이어야 합니다.
-            - preferredServices는 문자열 배열로 작성하세요.
-            
-            아래 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
-            
-            {
-              "dataUsageGB": 15,
-              "callTimeMin": 300,
-              "smsCount": 20,
-              "age": 28,
-              "gender": "남",
-              "preferredServices": ["YouTube", "Melon"]
-            }
-            """;
+        return jsonExtractionPrompt;
     }
 
     private PlanRecommendationDto sendToRecommendationModule(TelecomProfile profile) {
