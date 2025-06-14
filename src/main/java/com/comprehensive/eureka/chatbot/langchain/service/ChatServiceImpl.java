@@ -1,21 +1,24 @@
 package com.comprehensive.eureka.chatbot.langchain.service;
 
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
+import com.comprehensive.eureka.chatbot.client.RecommendClient;
+import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.PlanRecommendationDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.TelecomProfile;
-import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
+import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
+import dev.langchain4j.model.TokenCountEstimator;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
@@ -38,6 +42,7 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMemoryStore memoryStore;
     private final TokenCountEstimator tokenCountEstimator;
     private final ObjectMapper objectMapper;
+    private final RecommendClient recommendClient;
 
     private String systemPrompt;
     private String jsonExtractionPrompt;
@@ -62,9 +67,14 @@ public class ChatServiceImpl implements ChatService {
     // 사용자별 메모리 관리
     private final Map<Long, ChatMemory> userMemoryMap = new ConcurrentHashMap<>();
     private final BadwordServiceImpl badWordService;
+
     @Override
     @Transactional
     public String generateReply(Long userId, String message) {
+        // TODO
+
+
+
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
             TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
                     .id(id)
@@ -78,11 +88,11 @@ public class ChatServiceImpl implements ChatService {
         });
 
         boolean isBad = false;
-        try{
-            if(badWordService.checkBadWord(message)){
+        try {
+            if (badWordService.checkBadWord(message)) {
                 isBad = true;
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             return "부적절한 표현 감지 중 에러 발생";
         }
 
@@ -94,16 +104,19 @@ public class ChatServiceImpl implements ChatService {
 
         // 사용자 메시지 저장
         saveChatMessage(userId, message, false);
-        if(isBad){
+        if (isBad) {
             Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
-            try{
-                badWordService.sendBadwordRecord(userId,chatMessageId,message);
-            }catch(Exception e){
-                return("지금 현재 admin 모듈의 금칙어와 chatbot모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요");
+            try {
+                badWordService.sendBadwordRecord(userId, chatMessageId, message);
+            } catch (Exception e) {
+                return ("지금 현재 admin 모듈의 금칙어와 chatbot모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요");
             }
 
             return "부적절한 표현이 감지되어 답변할 수 없습니다.";
         }
+
+        // TODO
+
         // GPT 응답
         String response = chain.execute(message);
         saveChatMessage(userId, response, true);
@@ -168,11 +181,15 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private PlanRecommendationDto sendToRecommendationModule(TelecomProfile profile) {
-        // 실제 추천 모듈과 연동할 경우 이 부분을 HTTP POST 등으로 대체
-        PlanRecommendationDto mock = new PlanRecommendationDto();
-        mock.setPlanName("5G 시그니처 플랜");
-        mock.setPrice("59000");
-        mock.setDescription("200GB 데이터, 무제한 통화, 유튜브 프리미엄 포함");
-        return mock;
+//        // 실제 추천 모듈과 연동할 경우 이 부분을 HTTP POST 등으로 대체
+//        PlanRecommendationDto mock = new PlanRecommendationDto();
+//        mock.setPlanName("5G 시그니처 플랜");
+//        mock.setPrice("59000");
+//        mock.setDescription("200GB 데이터, 무제한 통화, 유튜브 프리미엄 포함");
+//        return mock;
+
+        BaseResponseDto<PlanRecommendationDto> recommend = recommendClient.recommend(profile);
+        log.info("recommend : {}", recommend);
+        return recommend.getData();
     }
 }
