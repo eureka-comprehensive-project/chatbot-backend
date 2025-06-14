@@ -3,7 +3,9 @@ package com.comprehensive.eureka.chatbot.langchain.service;
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.PlanRecommendationDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.PlanDto;
+
+import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.TelecomProfile;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
@@ -150,11 +152,11 @@ public class ChatServiceImpl implements ChatService {
                 TelecomProfile profile = objectMapper.treeToValue(root, TelecomProfile.class);
 
                 // 요금제 추천 모듈로 JSON 보내고, 추천 요금제 받아오기
-                PlanRecommendationDto plan = sendToRecommendationModule(profile);
-
+                RecommendationResponseDto responsePlan = sendToRecommendationModule(profile);
+                PlanDto plan = responsePlan.getRecommendPlans().get(0).getPlan();
                 String finalReply = String.format(
                         "고객님께 추천드리는 요금제는 '%s'입니다. 월 %s원이며, %s 등이 포함되어 있습니다.",
-                        plan.getPlanName(), plan.getPrice(), plan.getDescription()
+                        plan.getPlanName(), plan.getMonthlyFee(), plan.getAdditionalCallAllowance()
                 );
 
                 saveChatMessage(userId, finalReply, true);
@@ -180,7 +182,7 @@ public class ChatServiceImpl implements ChatService {
         return systemPrompt;
     }
 
-    private PlanRecommendationDto sendToRecommendationModule(TelecomProfile profile) {
+    private RecommendationResponseDto sendToRecommendationModule(TelecomProfile profile) {
 //        // 실제 추천 모듈과 연동할 경우 이 부분을 HTTP POST 등으로 대체
 //        PlanRecommendationDto mock = new PlanRecommendationDto();
 //        mock.setPlanName("5G 시그니처 플랜");
@@ -188,7 +190,7 @@ public class ChatServiceImpl implements ChatService {
 //        mock.setDescription("200GB 데이터, 무제한 통화, 유튜브 프리미엄 포함");
 //        return mock;
 
-        BaseResponseDto<PlanRecommendationDto> recommend = recommendClient.recommend(profile);
+        BaseResponseDto<RecommendationResponseDto> recommend = recommendClient.recommend(profile);
         log.info("recommend : {}", recommend);
         return recommend.getData();
     }

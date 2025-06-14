@@ -62,7 +62,7 @@ public class BadwordServiceImpl implements BadwordService {
         UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
                 .userId(123L)
                 .chatMessageId(456L)
-                .forbiddenWords(Arrays.asList("씨발", "씨발"))
+                .forbiddenWords(Arrays.asList("씨발"))
                 .build();
 
         adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
