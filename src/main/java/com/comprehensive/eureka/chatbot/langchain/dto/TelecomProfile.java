@@ -14,3 +14,11 @@ public class TelecomProfile {
     private String gender;
     private List<String> preferredServices;
 }
+//        preferenceDataUsage": 100,
+//        "preferenceDataUsageUnit": "GB",
+//        "preferenceSharedDataUsage": 10,
+//        "preferenceSharedDataUsageUnit": "GB",
+//        "preferencePrice": 69000,
+//        "preferenceBenefit": "넷플릭스",
+//        "isPreferenceFamilyData": true,
+//        "preferenceValueAddedCallUsage": 300

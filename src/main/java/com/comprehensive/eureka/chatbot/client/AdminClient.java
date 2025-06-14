@@ -14,7 +14,7 @@ public class AdminClient {
 
     public BaseResponseDto<Object> insertForbiddenWordRecord(UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto) {
         return webClientUtil.post(
-                "http://localhost:8086//admin/forbidden-words/chats",
+                "http://localhost:8086/admin/forbidden-words/chats",
                 userForbiddenWordsChatCreateRequestDto,
                 new ParameterizedTypeReference<>() {
                 }
