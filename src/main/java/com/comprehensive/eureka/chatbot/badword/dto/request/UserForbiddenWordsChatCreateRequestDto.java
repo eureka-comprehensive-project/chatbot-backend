@@ -8,9 +8,9 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 @Builder
-public class BadwordRecordRequest {
-    Long userId;
-    Long chatMessageId;
-    List<String> forbiddenWords;
+public class UserForbiddenWordsChatCreateRequestDto {
+    private Long userId;
+    private Long chatMessageId;
+    private List<String> forbiddenWords;
 
 }

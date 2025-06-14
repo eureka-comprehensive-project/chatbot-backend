@@ -159,7 +159,7 @@
 </div>
 
 <script>
-    let selectedPromptName = null;
+    let selectedPromptSentimentCode = null;
 
     window.onload = function () {
         fetchPrompts();
@@ -173,7 +173,7 @@
                 tbody.innerHTML = "";
                 data.data.forEach(prompt => {
                     const row = document.createElement("tr");
-                    row.onclick = () => toggleDetailBox(prompt.name);
+                    row.onclick = () => toggleDetailBox(prompt.sentimentCode);
                     row.innerHTML = `
                         <td>${prompt.promptId}</td>
                         <td>${prompt.sentimentCode}</td>
@@ -185,23 +185,23 @@
             });
     }
 
-    function toggleDetailBox(name) {
+    function toggleDetailBox(sentimentCode) {
         const detailBox = document.getElementById("detailBox");
         const createBox = document.getElementById("createBox");
 
         createBox.classList.add("hidden");
 
-        if (selectedPromptName === name && !detailBox.classList.contains("hidden")) {
+        if (selectedPromptSentimentCode === sentimentCode && !detailBox.classList.contains("hidden")) {
             detailBox.classList.add("hidden");
-            selectedPromptName = null;
+            selectedPromptSentimentCode = null;
             return;
         }
 
-        fetch(`/chatbot/api/prompt/${name}`)
+        fetch(`/chatbot/api/prompt/${sentimentCode}`)
             .then(res => res.json())
             .then(result => {
                 const prompt = result.data;
-                selectedPromptName = name;
+                selectedPromptSentimentCode = sentimentCode;
                 detailBox.classList.remove("hidden");
                 document.getElementById("detailId").value = prompt.promptId;
                 document.getElementById("detailCode").value = prompt.sentimentCode;
@@ -246,7 +246,7 @@
 
     function deletePrompt() {
         const promptId = document.getElementById("detailId").value;
-        fetch(`/chatbot/api/prompt?promptId=${promptId}`, {
+        fetch(`/chatbot/api/prompt/${promptId}`, {
             method: "DELETE"
         }).then(() => {
             alert("삭제 완료!");

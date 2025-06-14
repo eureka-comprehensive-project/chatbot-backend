@@ -31,9 +31,9 @@ public class PromptController {
         return ResponseEntity.ok(BaseResponseDto.success(prompts));
     }
 
-    @GetMapping("/{sentimentName}")
-    public ResponseEntity<BaseResponseDto> getPromptBySentimentName(@PathVariable String sentimentName) {
-        PromptDto promptDto = promptService.getPromptBySentimentName(sentimentName);
+    @GetMapping("/{sentimentCode}")
+    public ResponseEntity<BaseResponseDto> getPromptBySentimentCode(@PathVariable Integer sentimentCode) {
+        PromptDto promptDto = promptService.getPromptBySentimentCode(sentimentCode);
 
         return ResponseEntity.ok(BaseResponseDto.success(promptDto));
     }
@@ -45,8 +45,8 @@ public class PromptController {
         return ResponseEntity.ok(BaseResponseDto.success(updated));
     }
 
-    @DeleteMapping
-    public ResponseEntity<BaseResponseDto> deletePrompt(Long promptId) {
+    @DeleteMapping("/{promptId}")
+    public ResponseEntity<BaseResponseDto> deletePrompt(@PathVariable Long promptId) {
         promptService.deletePrompt(promptId);
 
         return ResponseEntity.ok(BaseResponseDto.voidSuccess());

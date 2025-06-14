@@ -71,9 +71,9 @@ public class PromptServiceImpl implements PromptService {
     }
 
     @Override
-    public PromptDto getPromptBySentimentName(String name) {
+    public PromptDto getPromptBySentimentCode(Integer sentimentCode) {
 
-        Prompt prompt = promptRepository.findByName(name);
+        Prompt prompt = promptRepository.findBySentimentCode(sentimentCode);
 
         if (prompt == null) {
             throw new PromptException(ErrorCode.PROMPT_NOT_FOUND);
