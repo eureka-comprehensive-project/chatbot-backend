@@ -5,6 +5,7 @@ import com.comprehensive.eureka.chatbot.langchain.dto.PlanRecommendationDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.TelecomProfile;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.data.message.SystemMessage;
@@ -110,11 +111,30 @@ public class ChatServiceImpl implements ChatService {
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
-                // JSON 추출용 프롬프트 메시지 삽입후, JSON 추출
-                String json = chain.execute(jsonExtractionPrompt());
-                System.out.println("[DEBUG] Extracted JSON from GPT:\n" + json);
-
-                TelecomProfile profile = objectMapper.readValue(json, TelecomProfile.class);
+                // JSON 추출을 오류 알림 없이 최대 2회 자동 재시도
+                JsonNode root = null;
+                String rawJson;
+                final int MAX_RETRIES = 2;  // 최대 재시도 횟수 지정
+                int attempt = 0;
+                while (attempt < MAX_RETRIES) {
+                    rawJson = chain.execute(jsonExtractionPrompt);
+                    root = objectMapper.readTree(rawJson);
+                    // 유효성 검사
+                    if (root.hasNonNull("dataUsageGB") && root.get("dataUsageGB").isInt()
+                            && root.hasNonNull("callTimeMin") && root.get("callTimeMin").isInt()
+                            && root.hasNonNull("smsCount") && root.get("smsCount").isInt()
+                            && root.hasNonNull("age") && root.get("age").isInt()
+                            && root.hasNonNull("gender") && root.get("gender").isTextual()
+                            && root.hasNonNull("preferredServices") && root.get("preferredServices").isArray()) {
+                        break;
+                    }
+                    attempt++;
+                }
+                // 실패 시 기본 처리
+                if (root == null) {
+                    return "통신성향 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                }
+                TelecomProfile profile = objectMapper.treeToValue(root, TelecomProfile.class);
 
                 // 요금제 추천 모듈로 JSON 보내고, 추천 요금제 받아오기
                 PlanRecommendationDto plan = sendToRecommendationModule(profile);
@@ -145,10 +165,6 @@ public class ChatServiceImpl implements ChatService {
 
     private String systemPrompt() {
         return systemPrompt;
-    }
-
-    private String jsonExtractionPrompt() {
-        return jsonExtractionPrompt;
     }
 
     private PlanRecommendationDto sendToRecommendationModule(TelecomProfile profile) {
