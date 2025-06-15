@@ -16,15 +16,13 @@ import org.springframework.stereotype.Component;
 public class SentimentClient {
     private final WebClientUtil webClientUtil;
 
-    public BaseResponseDto<DetermineSentimentResponseDto> determineSentiment(DetermineSentimentDto determineSentimentDto) {
-        BaseResponseDto<DetermineSentimentResponseDto> post = webClientUtil.post(
+    public String determineSentiment(DetermineSentimentDto determineSentimentDto) {
+        String sentiment = webClientUtil.postSentiment(
                 "http://localhost:8088/sentiment/api/predict",
-                determineSentimentDto,
-                new ParameterizedTypeReference<>() {
-                }
+                determineSentimentDto
         );
-        log.info("post값"+post);
-        return post;
+        log.info("post값"+sentiment);
+        return sentiment;
     }
 
 }
