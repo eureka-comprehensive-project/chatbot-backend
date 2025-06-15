@@ -31,12 +31,6 @@ public class PromptController {
         return ResponseEntity.ok(BaseResponseDto.success(prompts));
     }
 
-    @GetMapping("/{sentimentCode}")
-    public ResponseEntity<BaseResponseDto> getPromptBySentimentCode(@PathVariable Integer sentimentCode) {
-        PromptDto promptDto = promptService.getPromptBySentimentCode(sentimentCode);
-
-        return ResponseEntity.ok(BaseResponseDto.success(promptDto));
-    }
 
     @PutMapping
     public ResponseEntity<BaseResponseDto> updatePrompt(@RequestBody PromptDto promptDto) {
