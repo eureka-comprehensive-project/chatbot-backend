@@ -74,8 +74,8 @@ public class ChatServiceImpl implements ChatService {
     public String generateReply(Long userId, String message) {
         // TODO
         log.info("감정 분석 시작");
-        BaseResponseDto<DetermineSentimentResponseDto> determineSentimentResponseDtoBaseResponseDto = sentimentClient.determineSentiment(new DetermineSentimentDto(message));
-        log.info("감정 분석 " + determineSentimentResponseDtoBaseResponseDto.getData().getSentiment());
+        String sentiment = sentimentClient.determineSentiment(new DetermineSentimentDto(message));
+        log.info("감정 분석 " + sentiment);
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
             TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
                     .id(id)
