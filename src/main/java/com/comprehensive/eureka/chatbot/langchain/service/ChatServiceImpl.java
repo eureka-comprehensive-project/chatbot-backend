@@ -2,9 +2,9 @@ package com.comprehensive.eureka.chatbot.langchain.service;
 
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
+import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.PlanDto;
-
+import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.UserPreferenceDto;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
@@ -45,7 +45,7 @@ public class ChatServiceImpl implements ChatService {
     private final TokenCountEstimator tokenCountEstimator;
     private final ObjectMapper objectMapper;
     private final RecommendClient recommendClient;
-
+    private final SentimentClient sentimentClient;
     private String systemPrompt;
     private String jsonExtractionPrompt;
 
@@ -74,9 +74,9 @@ public class ChatServiceImpl implements ChatService {
     @Transactional
     public String generateReply(Long userId, String message) {
         // TODO
-
-
-
+        log.info("감정 분석 시작");
+        String sentiment = sentimentClient.determineSentiment(new DetermineSentimentDto(message));
+        log.info("감정 분석 " + sentiment);
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
             TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
                     .id(id)

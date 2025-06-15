@@ -30,6 +30,15 @@ public class WebClientUtil {
                 .bodyToMono(responseType)
                 .block();
     }
+    public <T> String postSentiment(String url, T requestBody) {
+        return webClient.post()
+                .uri(url)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+    }
+
 
     public <T, R> BaseResponseDto<R> put(String url, T requestBody, ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
         return webClient.put()
