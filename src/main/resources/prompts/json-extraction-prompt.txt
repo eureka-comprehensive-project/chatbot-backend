@@ -1,19 +1,34 @@
 지금까지의 대화를 기반으로 사용자의 통신 성향 정보를 아래 JSON 형식에 맞게 정리해 주세요.
 
-            - 모든 항목은 정확한 숫자(int) 또는 문자열 형식에 맞춰 작성해 주세요.
-            - 문자 개수(smsCount)가 '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
-            - 필요한 데이터 사용량(dataUsageGB)도 무제한일 경우 숫자 99999로 표현하세요.
-            - 통화 시간(callTimeMin)도 무제한일 경우 숫자 99999로 표현하세요.
-            - gender는 반드시 "남" 또는 "여" 중 하나의 문자열이어야 합니다.
-            - preferredServices는 문자열 배열로 작성하세요.
+
+아래 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
+
+지금까지의 대화를 기반으로 사용자의 선호 정보를 아래 JSON 형식에 맞게 정리해 주세요.
+
+            - '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
+
+
+- 모든 항목은 정확한 타입에 맞춰 작성해 주세요.
+  - `userId`: Long (정수)
+  - `preferenceDataUsage`: Integer (숫자)
+  - `preferenceDataUsageUnit`: String (예: "GB", "MB")
+  - `preferenceSharedDataUsage`: Integer (숫자)
+  - `preferenceSharedDataUsageUnit`: String (예: "GB", "MB")
+  - `preferencePrice`: Integer (숫자)
+  - `preferenceBenefitGroupId`: String
+  - `isPreferenceFamilyData`: Boolean (`true` 또는 `false`)
+  - `preferenceValueAddedCallUsage`: Integer (숫자)
 
 아래 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
 
 {
-              "dataUsageGB": 15,
-              "callTimeMin": 300,
-              "smsCount": 20,
-              "age": 28,
-              "gender": "남",
-              "preferredServices": ["YouTube", "Melon"]
+  "userId": 123456,
+  "preferenceDataUsage": 50,
+  "preferenceDataUsageUnit": "GB",
+  "preferenceSharedDataUsage": 10,
+  "preferenceSharedDataUsageUnit": "GB",
+  "preferencePrice": 50000,
+  "preferenceBenefitGroupId": "1",
+  "isPreferenceFamilyData": true,
+  "preferenceValueAddedCallUsage": 300
 }

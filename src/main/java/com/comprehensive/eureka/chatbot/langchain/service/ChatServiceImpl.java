@@ -6,7 +6,7 @@ import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.PlanDto;
 
 import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.TelecomProfile;
+import com.comprehensive.eureka.chatbot.langchain.dto.UserPreferenceDto;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -80,12 +80,12 @@ public class ChatServiceImpl implements ChatService {
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
             TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
                     .id(id)
-                    .maxTokens(1000, tokenCountEstimator)
+                    .maxTokens(10000, tokenCountEstimator)
                     .chatMemoryStore(memoryStore)
                     .build();
 
             // System 역할 명확하게 지정
-            newMemory.add(SystemMessage.from(systemPrompt()));
+            newMemory.add(SystemMessage.from(systemPrompt));
             return newMemory;
         });
 
@@ -111,7 +111,7 @@ public class ChatServiceImpl implements ChatService {
             try {
                 badWordService.sendBadwordRecord(userId, chatMessageId, message);
             } catch (Exception e) {
-                return ("지금 현재 admin 모듈의 금칙어와 chatbot모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요");
+                return ("지금 현재 admin 모듈의 금칙어와 chatbot 모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요");
             }
 
             return "부적절한 표현이 감지되어 답변할 수 없습니다.";
@@ -123,36 +123,44 @@ public class ChatServiceImpl implements ChatService {
         String response = chain.execute(message);
         saveChatMessage(userId, response, true);
 
+
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
-                // JSON 추출을 오류 알림 없이 최대 2회 자동 재시도
                 JsonNode root = null;
                 String rawJson;
-                final int MAX_RETRIES = 2;  // 최대 재시도 횟수 지정
+                final int MAX_RETRIES = 2;
                 int attempt = 0;
+                boolean valid = false;
+
                 while (attempt < MAX_RETRIES) {
                     rawJson = chain.execute(jsonExtractionPrompt);
                     root = objectMapper.readTree(rawJson);
-                    // 유효성 검사
-                    if (root.hasNonNull("dataUsageGB") && root.get("dataUsageGB").isInt()
-                            && root.hasNonNull("callTimeMin") && root.get("callTimeMin").isInt()
-                            && root.hasNonNull("smsCount") && root.get("smsCount").isInt()
-                            && root.hasNonNull("age") && root.get("age").isInt()
-                            && root.hasNonNull("gender") && root.get("gender").isTextual()
-                            && root.hasNonNull("preferredServices") && root.get("preferredServices").isArray()) {
+
+                    // UserPreferenceDto 필드 유효성 검사
+                    if (root.hasNonNull("userId") && root.get("userId").canConvertToLong()
+                            && root.hasNonNull("preferenceDataUsage") && root.get("preferenceDataUsage").isInt()
+                            && root.hasNonNull("preferenceDataUsageUnit") && root.get("preferenceDataUsageUnit").isTextual()
+                            && root.hasNonNull("preferenceSharedDataUsage") && root.get("preferenceSharedDataUsage").isInt()
+                            && root.hasNonNull("preferenceSharedDataUsageUnit") && root.get("preferenceSharedDataUsageUnit").isTextual()
+                            && root.hasNonNull("preferencePrice") && root.get("preferencePrice").isInt()
+                            && root.hasNonNull("preferenceBenefitGroupId") && root.get("preferenceBenefitGroupId").isInt()
+                            && root.hasNonNull("isPreferenceFamilyData") && root.get("isPreferenceFamilyData").isBoolean()
+                            && root.hasNonNull("preferenceValueAddedCallUsage") && root.get("preferenceValueAddedCallUsage").isInt()) {
+                        valid = true;
                         break;
                     }
                     attempt++;
                 }
-                // 실패 시 기본 처리
-                if (root == null) {
+
+                if (!valid) {
                     return "통신성향 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
                 }
-                TelecomProfile profile = objectMapper.treeToValue(root, TelecomProfile.class);
 
-                // 요금제 추천 모듈로 JSON 보내고, 추천 요금제 받아오기
-                RecommendationResponseDto responsePlan = sendToRecommendationModule(profile);
+                UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
+
+                RecommendationResponseDto responsePlan =
+                        sendToRecommendationModule(preference);
                 PlanDto plan = responsePlan.getRecommendPlans().get(0).getPlan();
                 String finalReply = String.format(
                         "고객님께 추천드리는 요금제는 '%s'입니다. 월 %s원이며, %s 등이 포함되어 있습니다.",
@@ -178,19 +186,8 @@ public class ChatServiceImpl implements ChatService {
         chatMessageRepository.save(chatMessage);
     }
 
-    private String systemPrompt() {
-        return systemPrompt;
-    }
-
-    private RecommendationResponseDto sendToRecommendationModule(TelecomProfile profile) {
-//        // 실제 추천 모듈과 연동할 경우 이 부분을 HTTP POST 등으로 대체
-//        PlanRecommendationDto mock = new PlanRecommendationDto();
-//        mock.setPlanName("5G 시그니처 플랜");
-//        mock.setPrice("59000");
-//        mock.setDescription("200GB 데이터, 무제한 통화, 유튜브 프리미엄 포함");
-//        return mock;
-
-        BaseResponseDto<RecommendationResponseDto> recommend = recommendClient.recommend(profile);
+    private RecommendationResponseDto sendToRecommendationModule(UserPreferenceDto preference) {
+        BaseResponseDto<RecommendationResponseDto> recommend = recommendClient.recommend(preference);
         log.info("recommend : {}", recommend);
         return recommend.getData();
     }
