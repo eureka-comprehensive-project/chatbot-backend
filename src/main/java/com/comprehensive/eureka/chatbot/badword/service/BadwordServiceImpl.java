@@ -3,78 +3,77 @@ package com.comprehensive.eureka.chatbot.badword.service;
 import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
 import com.comprehensive.eureka.chatbot.badword.dto.request.UserForbiddenWordsChatCreateRequestDto;
 import com.comprehensive.eureka.chatbot.badword.dto.response.BadwordResponse;
+import com.comprehensive.eureka.chatbot.badword.dto.response.ForbiddenWordResponseDto;
+import com.comprehensive.eureka.chatbot.badword.redis.service.ForbiddenWordRedisService;
+import com.comprehensive.eureka.chatbot.badword.redis.service.RedisService;
 import com.comprehensive.eureka.chatbot.client.AdminClient;
-import com.vane.badwordfiltering.BadWordFiltering;
+import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BadwordServiceImpl implements BadwordService {
 
-    private final BadWordFiltering badwordFiltering;
+    private final ForbiddenWordRedisService redisService;
     private final AdminClient adminClient;
-    // CREATE
+
+
     @Override
-    public BadwordResponse createBadWord(BadwordRequest badwordRequest) {
-        System.out.println(badwordRequest.getBadword() + "단어가 금칙어 리스트에 추가 되었습니다.");
+    public void createBadWord(BadwordRequest badwordRequest) {
+        List<ForbiddenWordResponseDto> list = null;
         try{
-            badwordFiltering.add(badwordRequest.getBadword());
+            redisService.addForbiddenWord(badwordRequest.getBadword());
         }catch(Exception e){
             e.printStackTrace();
-            System.out.println("chatbot module : 금칙어 리스트에 단어 추가하는 중에 오류가 발생");
+            System.out.println("금칙어 리스트에 단어 추가하는 중에 오류가 발생");
         }
-
-        return new BadwordResponse(badwordRequest.getBadword(), "단어가 추가되었습니다.");
     }
 
-    // READ ALL
     @Override
-
-    public List<BadwordResponse> getAllBadWord() {
-        List<BadwordResponse> result = new ArrayList<>();
-        for (String word : badwordFiltering) {
-            result.add(new BadwordResponse(word, "존재하는 필터링 단어입니다."));
-        }
-        return result;
+    public Set<String> getAllForbiddendWords() {
+        return redisService.getAllForbiddenWords();
     }
 
-    // DELETE
-    @Override
-    public void deleteBadWordResponse(String word) {
-        badwordFiltering.remove(word);
-    }
 
     @Override
     public boolean checkBadWord(String message){
-
-        if(badwordFiltering.blankCheck(message)){
-            return true;
+        Set<String> badWords = getAllForbiddendWords();
+        for (String word : badWords) {
+            if (message.contains(word)) {
+                return true;
+            }
         }
         return false;
     }
+
     @Override
-    public void sendBadwordRecord(Long userId,Long chatMesageId, String message){
+    public void deleteBadWord(String word) {
+        redisService.removeForbiddenWord(word);
+    }
+
+    @Override
+    public void sendBadwordRecord(Long userId,Long chatMessageId, String message){
+        Set<String> badWords = getAllForbiddendWords();
+        List<String> found = new ArrayList<>();
+        for (String word : badWords) {
+            if (message.contains(word)) {
+                found.add(word);
+            }
+        }
+        log.info("found" + found + "userId" + userId + "chatId" + chatMessageId );
 
         UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
-                .userId(123L)
-                .chatMessageId(456L)
-                .forbiddenWords(Arrays.asList("씨발"))
+                .userId(userId)
+                .chatMessageId(chatMessageId)
+                .forbiddenWords(found)
                 .build();
 
         adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
-    }
-
-    // 추가: 문자열로 삭제
-    public BadwordResponse deleteBadwordByString(String word) {
-        if (badwordFiltering.remove(word)) {
-            return new BadwordResponse(word, "단어가 삭제되었습니다.");
-        } else {
-            return new BadwordResponse(word, "단어를 찾을 수 없습니다.");
-        }
     }
 }
