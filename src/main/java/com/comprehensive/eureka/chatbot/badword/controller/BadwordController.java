@@ -16,14 +16,15 @@ public class BadwordController {
 
     // CREATE
     @PostMapping
-    public BaseResponseDto<BadwordResponse> createBadword(@RequestBody BadwordRequest badword) {
-        return BaseResponseDto.success(badwordServiceImpl.createBadWord(badword));
+    public BaseResponseDto<Void> createBadword(@RequestBody BadwordRequest badword) {
+        badwordServiceImpl.createBadWord(badword);
+        return BaseResponseDto.success(null);
     }
 
     // DELETE
     @DeleteMapping("/{word}")
     public void deleteBadword(@PathVariable String word) {
-        badwordServiceImpl.deleteBadWordResponse(word);
+        badwordServiceImpl.deleteBadWord(word);
     }
 
 }

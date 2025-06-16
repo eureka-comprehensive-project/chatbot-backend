@@ -5,10 +5,15 @@ import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -22,16 +27,29 @@ public class WebClientUtil {
                 .bodyToMono(responseType)
                 .block();
     }
-
-
     public <R> BaseResponseDto<R> getWithPathVariable(String urlTemplate,
-                                                                              String pathVariable,
-                                                                              ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
+                                                      String pathVariable,
+                                                      ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
         return webClient.get()
                 .uri(urlTemplate, pathVariable)
                 .retrieve()
                 .bodyToMono(responseType)
                 .block();
+    }
+
+    public <R> BaseResponseDto<R> getWithVoid(String url, Map<String, Object> queryParams, ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
+        URI uri = UriComponentsBuilder.fromPath(url)
+                .queryParams(CollectionUtils.toMultiValueMap(queryParams))
+                .build()
+                .encode()
+                .toUri();
+
+        return webClient
+                .method(HttpMethod.GET)
+                .uri(uri)
+                .retrieve()
+                .bodyToMono(responseType)
+                .block(); // 동기 방식
     }
 
     public <T, R> BaseResponseDto<R> post(String url, T requestBody, ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
