@@ -211,7 +211,6 @@ public class ChatServiceImpl implements ChatService {
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
             try {
-                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 String extractedKeyword = null;
                 final int MAX_RETRIES = 2;
                 int attempt = 0;
@@ -254,6 +253,7 @@ public class ChatServiceImpl implements ChatService {
 
                 finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 saveChatMessage(userId, finalReply, true);
+                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 return finalReply;
 
             } catch (Exception e) {
@@ -264,7 +264,6 @@ public class ChatServiceImpl implements ChatService {
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
-                promptProcessing.put(userId,false);
                 JsonNode root = null;
                 String rawJson;
                 final int MAX_RETRIES = 2;
@@ -337,6 +336,7 @@ public class ChatServiceImpl implements ChatService {
                 );
 
                 saveChatMessage(userId, finalReply, true);
+                promptProcessing.put(userId,false);
                 return finalReply;
             } catch (Exception e) {
                 e.printStackTrace();
