@@ -7,7 +7,6 @@ import lombok.Data;
 @Builder
 public class UserPreferenceDto {
 
-    private Long userId;
     private Integer preferenceDataUsage;
     private String preferenceDataUsageUnit;
     private Integer preferenceSharedDataUsage;
