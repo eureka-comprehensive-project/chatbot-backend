@@ -34,6 +34,7 @@ public class BadwordServiceImpl implements BadwordService {
 
     // READ ALL
     @Override
+
     public List<BadwordResponse> getAllBadWord() {
         List<BadwordResponse> result = new ArrayList<>();
         for (String word : badwordFiltering) {
