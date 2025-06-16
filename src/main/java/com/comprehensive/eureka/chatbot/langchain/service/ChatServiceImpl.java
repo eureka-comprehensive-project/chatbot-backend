@@ -153,10 +153,10 @@ public class ChatServiceImpl implements ChatService {
         try {
             if (badWordService.checkBadWord(message)) {
                 saveForbiddenWordRecord(userId,message);
-                return "부적절한 표현이 감지되어 답변할 수 없습니다.";
+                return "부적절한 표현이 감지되어 답변할 수 없습니다. 제대로 답변해주세요";
             }
         } catch (Exception e) {
-            return "지금 현재 admin 모듈의 금칙어와 chatbot 모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요";
+            return "부적절한 표현 감지 중 오류 발생";
         }
 
         // TODO
@@ -186,9 +186,10 @@ public class ChatServiceImpl implements ChatService {
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]4번으로 예상")){
             log.info("[prompt전환]4번으로 예상");
-            memory.add(SystemMessage.from("못알아 들었습니다 라고 한다" + attitude));
+//            memory.add(SystemMessage.from("못알아 들었습니다 라고 한다, " + attitude));
             promptProcessing.put(userId, false);
-            response = chain.execute(message);
+//            response = chain.execute(message);
+            return("못알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요");
         }
 
         //사용자 정보 제공 완료 감지
@@ -210,6 +211,7 @@ public class ChatServiceImpl implements ChatService {
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
             try {
+                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 String extractedKeyword = null;
                 final int MAX_RETRIES = 2;
                 int attempt = 0;
@@ -250,6 +252,7 @@ public class ChatServiceImpl implements ChatService {
                                 })
                                 .collect(Collectors.joining("\n"));
 
+                finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 saveChatMessage(userId, finalReply, true);
                 return finalReply;
 
