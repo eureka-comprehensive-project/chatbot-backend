@@ -133,9 +133,10 @@ public class ChatServiceImpl implements ChatService {
 
         //만약 한 prompt의 로직이 종료 됐다면, prompt를 갈아 끼는 모드로 변경
         if (!promptProcessing.get(userId) || firstChatActivated.get(userId)){
-            System.out.println("isProcessing false");
+            log.info("prompt 전환 시작");
             firstChatActivated.put(userId,false);
             memory.add(SystemMessage.from(whatTodoPrompt));
+            log.info("prompt 전환 끝");
         }
 
 
@@ -169,22 +170,22 @@ public class ChatServiceImpl implements ChatService {
         String attitude = "정보 제공성 말투";
         //매 답변마다 혹시 prompt 전환여지가 있었는지 분석
         if(response.contains("[prompt전환]1번으로 예상")){
-            System.out.println("[prompt전환]1번으로 예상");
+            log.info("[prompt전환]1번으로 예상");
             memory.add(SystemMessage.from(userInfoPrompt + attitude));
             promptProcessing.put(userId,true); //해당 prompt가 계속 진행되게 한다.
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]2번으로 예상")){
-            System.out.println("[prompt전환]2번으로 예상");
+            log.info("[prompt전환]2번으로 예상");
             memory.add(SystemMessage.from(funnyChatPrompt + attitude));
             promptProcessing.put(userId,true);
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]3번으로 예상")) {
-            System.out.println("[prompt전환]3번으로 예상");
+            log.info("[prompt전환]3번으로 예상");
             memory.add(SystemMessage.from(recommendPrompt + attitude));
             promptProcessing.put(userId, true);
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]4번으로 예상")){
-            System.out.println("[prompt전환]4번으로 예상");
+            log.info("[prompt전환]4번으로 예상");
             memory.add(SystemMessage.from("못알아 들었습니다 라고 한다" + attitude));
             promptProcessing.put(userId, false);
             response = chain.execute(message);
@@ -195,14 +196,14 @@ public class ChatServiceImpl implements ChatService {
             //현재 구현 안되어 있음. todo
             //todo : 사용자 정보 api 호출후 제공
             promptProcessing.put(userId,false);
-            System.out.println("사용자 정보 제공 끝");
+            log.info("사용자 정보 제공 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
         }
 
         //심심풀이 완료 감지
         if(response.contains("재밌는 이야기 였습니다")){
             promptProcessing.put(userId,false);
-            System.out.println("심심풀이 끝");
+            log.info("심심풀이 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
         }
 

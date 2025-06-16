@@ -23,21 +23,15 @@ public class BadwordServiceImpl implements BadwordService {
     private final ForbiddenWordRedisService redisService;
     private final AdminClient adminClient;
 
-
-    @Override
-    public void createBadWord(BadwordRequest badwordRequest) {
-        List<ForbiddenWordResponseDto> list = null;
-        try{
-            redisService.addForbiddenWord(badwordRequest.getBadword());
-        }catch(Exception e){
-            e.printStackTrace();
-            System.out.println("금칙어 리스트에 단어 추가하는 중에 오류가 발생");
-        }
-    }
-
     @Override
     public Set<String> getAllForbiddendWords() {
-        return redisService.getAllForbiddenWords();
+        Set<String> forbiddenWords = new HashSet<>();
+        for(ForbiddenWordResponseDto forbiddenWordResponseDto: adminClient.getForbiddenWords().getData()){
+            log.info("현재 forbidden words : "+forbiddenWordResponseDto.getWord());
+            forbiddenWords.add(forbiddenWordResponseDto.getWord());
+        }
+
+        return forbiddenWords;
     }
 
 
@@ -52,10 +46,6 @@ public class BadwordServiceImpl implements BadwordService {
         return false;
     }
 
-    @Override
-    public void deleteBadWord(String word) {
-        redisService.removeForbiddenWord(word);
-    }
 
     @Override
     public void sendBadwordRecord(Long userId,Long chatMessageId, String message){
@@ -66,7 +56,7 @@ public class BadwordServiceImpl implements BadwordService {
                 found.add(word);
             }
         }
-        log.info("found" + found + "userId" + userId + "chatId" + chatMessageId );
+        log.info("금칙어 사용 기록 insert 중 -> 사용한 금칙어 개수 : " + found.size() + "userId : " + userId + "chatId : " + chatMessageId );
 
         UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
                 .userId(userId)
