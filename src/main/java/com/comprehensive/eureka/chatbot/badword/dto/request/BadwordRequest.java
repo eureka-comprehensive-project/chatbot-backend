@@ -11,5 +11,5 @@ import java.util.List;
 @AllArgsConstructor
 public class BadwordRequest {
     private String badword;
-    private List<String> badwords;
+    private boolean used;
 }

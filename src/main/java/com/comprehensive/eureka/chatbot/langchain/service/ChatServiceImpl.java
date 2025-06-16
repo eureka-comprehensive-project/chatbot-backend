@@ -151,7 +151,7 @@ public class ChatServiceImpl implements ChatService {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
         try {
             if (badWordService.checkBadWord(message)) {
-//                saveForbiddenWordRecord(userId,message);
+                saveForbiddenWordRecord(userId,message);
                 return "부적절한 표현이 감지되어 답변할 수 없습니다.";
             }
         } catch (Exception e) {
