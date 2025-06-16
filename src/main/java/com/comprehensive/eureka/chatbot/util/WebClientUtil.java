@@ -1,6 +1,7 @@
 package com.comprehensive.eureka.chatbot.util;
 
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -14,9 +15,20 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientUtil {
     private final WebClient webClient;
 
-    public <R> R get(String url, Class<R> responseType, String bearerToken) {
+    public <R> BaseResponseDto<R> get(String url, ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
         return webClient.get()
                 .uri(url)
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
+    }
+
+
+    public <R> BaseResponseDto<R> getWithPathVariable(String urlTemplate,
+                                                                              String pathVariable,
+                                                                              ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
+        return webClient.get()
+                .uri(urlTemplate, pathVariable)
                 .retrieve()
                 .bodyToMono(responseType)
                 .block();
