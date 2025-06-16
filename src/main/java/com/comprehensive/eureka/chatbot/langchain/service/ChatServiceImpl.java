@@ -270,18 +270,18 @@ public class ChatServiceImpl implements ChatService {
 
                 while (attempt < MAX_RETRIES) {
                     rawJson = chain.execute(jsonExtractionPrompt);
+                    log.info("rawJson : {}", rawJson);
                     root = objectMapper.readTree(rawJson);
-
+                    log.info("root : {}", root);
                     // UserPreferenceDto 필드 유효성 검사
-                    if (root.hasNonNull("userId") && root.get("userId").canConvertToLong()
-                            && root.hasNonNull("preferenceDataUsage") && root.get("preferenceDataUsage").isInt()
-                            && root.hasNonNull("preferenceDataUsageUnit") && root.get("preferenceDataUsageUnit").isTextual()
-                            && root.hasNonNull("preferenceSharedDataUsage") && root.get("preferenceSharedDataUsage").isInt()
-                            && root.hasNonNull("preferenceSharedDataUsageUnit") && root.get("preferenceSharedDataUsageUnit").isTextual()
-                            && root.hasNonNull("preferencePrice") && root.get("preferencePrice").isInt()
-                            && root.hasNonNull("preferenceBenefitGroupId") && root.get("preferenceBenefitGroupId").isInt()
-                            && root.hasNonNull("isPreferenceFamilyData") && root.get("isPreferenceFamilyData").isBoolean()
-                            && root.hasNonNull("preferenceValueAddedCallUsage") && root.get("preferenceValueAddedCallUsage").isInt()) {
+                    if (root.get("preferenceDataUsage").isInt()
+                            && root.get("preferenceDataUsageUnit").isTextual()
+                            && root.get("preferenceSharedDataUsage").isInt()
+                            && root.get("preferenceSharedDataUsageUnit").isTextual()
+                            && root.get("preferencePrice").isInt()
+                            && root.get("preferenceBenefitGroupId").isInt()
+                            && root.get("isPreferenceFamilyData").isBoolean()
+                            && root.get("preferenceValueAddedCallUsage").isInt()) {
                         valid = true;
                         break;
                     }
@@ -294,8 +294,9 @@ public class ChatServiceImpl implements ChatService {
 
                 UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
 
-                List<RecommendPlanDto> recommendPlans = sendToRecommendationModule(preference);
-
+                log.info("preference : {}", preference);
+                List<RecommendPlanDto> recommendPlans = sendToRecommendationModule(preference, userId);
+                log.info("recommendPlans : {}", recommendPlans);
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
                     return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
                 }
@@ -348,8 +349,8 @@ public class ChatServiceImpl implements ChatService {
         Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
         badWordService.sendBadwordRecord(userId, chatMessageId, message);
     }
-    private List<RecommendPlanDto> sendToRecommendationModule(UserPreferenceDto preference) {
-        BaseResponseDto<List<RecommendPlanDto>> recommendBaseResponse = recommendClient.recommend(preference);
+    private List<RecommendPlanDto> sendToRecommendationModule(UserPreferenceDto preference, Long userId) {
+        BaseResponseDto<List<RecommendPlanDto>> recommendBaseResponse = recommendClient.recommend(preference, userId);
         log.info("recommendBaseResponse : {}", recommendBaseResponse);
         return recommendBaseResponse.getData();
     }
