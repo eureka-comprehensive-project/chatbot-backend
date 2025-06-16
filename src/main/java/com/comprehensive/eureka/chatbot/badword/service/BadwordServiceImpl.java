@@ -1,12 +1,15 @@
 package com.comprehensive.eureka.chatbot.badword.service;
 
 import com.comprehensive.eureka.chatbot.badword.dto.request.BadwordRequest;
+import com.comprehensive.eureka.chatbot.badword.dto.request.UserForbiddenWordsChatCreateRequestDto;
 import com.comprehensive.eureka.chatbot.badword.dto.response.BadwordResponse;
+import com.comprehensive.eureka.chatbot.client.AdminClient;
 import com.vane.badwordfiltering.BadWordFiltering;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -14,7 +17,7 @@ import java.util.List;
 public class BadwordServiceImpl implements BadwordService {
 
     private final BadWordFiltering badwordFiltering;
-
+    private final AdminClient adminClient;
     // CREATE
     @Override
     public BadwordResponse createBadWord(BadwordRequest badwordRequest) {
@@ -43,6 +46,26 @@ public class BadwordServiceImpl implements BadwordService {
     @Override
     public void deleteBadWordResponse(String word) {
         badwordFiltering.remove(word);
+    }
+
+    @Override
+    public boolean checkBadWord(String message){
+
+        if(badwordFiltering.blankCheck(message)){
+            return true;
+        }
+        return false;
+    }
+    @Override
+    public void sendBadwordRecord(Long userId,Long chatMesageId, String message){
+
+        UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
+                .userId(123L)
+                .chatMessageId(456L)
+                .forbiddenWords(Arrays.asList("씨발"))
+                .build();
+
+        adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
     }
 
     // 추가: 문자열로 삭제

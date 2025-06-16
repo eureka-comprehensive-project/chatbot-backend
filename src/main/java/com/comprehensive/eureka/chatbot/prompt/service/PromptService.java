@@ -9,7 +9,9 @@ public interface PromptService {
     PromptDto createPrompt(PromptDto promptDto);
 
     List<PromptDto> getAllPrompts();
-    PromptDto getPromptBySentimentName(String name);
+
+
+    PromptDto getPromptBySentimentName(String sentimentName);
 
     PromptDto updatePrompt(PromptDto promptDto);
     void deletePrompt(Long promptId);

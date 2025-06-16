@@ -39,6 +39,7 @@ dependencies {
 	//webClient 사용을 위한 WebFlux
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 
 tasks.named('test') {

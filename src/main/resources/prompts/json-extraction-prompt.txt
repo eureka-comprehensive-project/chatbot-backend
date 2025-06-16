@@ -1,0 +1,33 @@
+지금까지의 대화를 기반으로 사용자의 통신 성향 정보를 아래 JSON 형식에 맞게 정리해 주세요.
+
+
+아래 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
+
+지금까지의 대화를 기반으로 사용자의 선호 정보를 아래 JSON 형식에 맞게 정리해 주세요.
+
+            - '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
+
+
+- 모든 항목은 정확한 타입에 맞춰 작성해 주세요.
+  - `preferenceDataUsage`: Integer (숫자)
+  - `preferenceDataUsageUnit`: String (예: "GB", "MB")
+  - `preferenceSharedDataUsage`: Integer (숫자)
+  - `preferenceSharedDataUsageUnit`: String (예: "GB", "MB")
+  - `preferencePrice`: Integer (숫자)
+  - `preferenceBenefitGroupId`: 일단 이건 무조건 1로 해
+  - `isPreferenceFamilyData`: Boolean (`true` 또는 `false`)
+  - `preferenceValueAddedCallUsage`: Integer (숫자)
+
+아래 예시 형식 그대로 JSON으로만 응답하세요. 설명은 필요 없습니다.
+
+예시:
+{
+  "preferenceDataUsage": 50,
+  "preferenceDataUsageUnit": "GB",
+  "preferenceSharedDataUsage": 10,
+  "preferenceSharedDataUsageUnit": "GB",
+  "preferencePrice": 50000,
+  "preferenceBenefitGroupId": "1",
+  "isPreferenceFamilyData": true,
+  "preferenceValueAddedCallUsage": 300
+}
