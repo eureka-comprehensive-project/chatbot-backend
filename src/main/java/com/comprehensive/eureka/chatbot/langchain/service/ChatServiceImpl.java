@@ -159,8 +159,8 @@ public class ChatServiceImpl implements ChatService {
         saveChatMessage(userId, response, true);
 
         //매 답변마다의 감정코드에 맞는 chatbot의 태도 추출
-        String attitude = promptServiceImpl.getPromptBySentimentName(sentiment).getScenario();
-
+//        String attitude = promptServiceImpl.getPromptBySentimentName(sentiment).getScenario();
+        String attitude = "정보 제공성 말투";
         //매 답변마다 혹시 prompt 전환여지가 있었는지 분석
         if(response.contains("[prompt전환]1번으로 예상")){
             System.out.println("[prompt전환]1번으로 예상");
