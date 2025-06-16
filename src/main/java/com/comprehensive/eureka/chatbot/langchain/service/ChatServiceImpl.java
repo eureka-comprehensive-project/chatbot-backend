@@ -269,10 +269,21 @@ public class ChatServiceImpl implements ChatService {
 
                 while (attempt < MAX_RETRIES) {
                     rawJson = chain.execute(jsonExtractionPrompt);
+
+                    int start = rawJson.indexOf('{');
+                    int end = rawJson.lastIndexOf('}');
+                    if (start >= 0 && end > start) {
+                        rawJson = rawJson.substring(start, end + 1);
+                    } else {
+                        log.warn("JSON 추출 실패: 유효한 JSON 객체 형식이 아닙니다.");
+                        attempt++;
+                        continue;
+                    }
                     log.info("rawJson : {}", rawJson);
                     root = objectMapper.readTree(rawJson);
                     log.info("root : {}", root);
                     // UserPreferenceDto 필드 유효성 검사
+
                     if (root.get("preferenceDataUsage").isInt()
                             && root.get("preferenceDataUsageUnit").isTextual()
                             && root.get("preferenceSharedDataUsage").isInt()
@@ -295,6 +306,7 @@ public class ChatServiceImpl implements ChatService {
 
                 log.info("preference : {}", preference);
                 RecommendationResponseDto recommendationResponse = sendToRecommendationModule(preference, userId);
+                log.info("recommendationResponse : {}", recommendationResponse);
                 List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
                     return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
@@ -303,6 +315,7 @@ public class ChatServiceImpl implements ChatService {
                 String recommendationsText = recommendPlans.stream()
                         .map(recommend -> {
                             PlanDto plan = recommend.getPlan();
+                            log.info("plan : {}", plan);
                             return String.format(
                                     "요금제: '%s'\n- 월정액: %s원\n- 제공량: %s %s (통화량: %s분)\n",
                                     plan.getPlanName(),
@@ -322,8 +335,10 @@ public class ChatServiceImpl implements ChatService {
                 saveChatMessage(userId, finalReply, true);
                 return finalReply;
             } catch (Exception e) {
+                e.printStackTrace();
                 return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
+
         }
 
         return response;
