@@ -151,8 +151,8 @@ public class ChatServiceImpl implements ChatService {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
         try {
             if (badWordService.checkBadWord(message)) {
-                saveForbiddenWordRecord(userId,message);
-                return "부적절한 표현이 감지되어 답변할 수 없습니다." + message;
+//                saveForbiddenWordRecord(userId,message);
+                return "부적절한 표현이 감지되어 답변할 수 없습니다.";
             }
         } catch (Exception e) {
             return "지금 현재 admin 모듈의 금칙어와 chatbot 모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요";
@@ -255,7 +255,7 @@ public class ChatServiceImpl implements ChatService {
 
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
-                return "키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                return "키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
         }
         // 통신성향 수집 완료 신호 감지
@@ -289,7 +289,7 @@ public class ChatServiceImpl implements ChatService {
                 }
 
                 if (!valid) {
-                    return "통신성향 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                    return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 }
 
                 UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
