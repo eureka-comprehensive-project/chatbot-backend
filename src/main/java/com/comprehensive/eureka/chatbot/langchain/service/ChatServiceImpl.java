@@ -48,7 +48,7 @@ public class ChatServiceImpl implements ChatService {
     private final ObjectMapper objectMapper;
     private final RecommendClient recommendClient;
     private final SentimentClient sentimentClient;
-    private String systemPrompt;
+    private String recommendPrompt;
     private String userInfoPrompt;
     private String funnyChatPrompt;
     private String whatTodoPrompt;
@@ -59,7 +59,7 @@ public class ChatServiceImpl implements ChatService {
         try {
             Resource systemResource = new ClassPathResource("prompts/system-prompt.txt");
             try (InputStream in = systemResource.getInputStream()) {
-                this.systemPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                this.recommendPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             Resource systemResource2 = new ClassPathResource("prompts/infoChat-prompt.txt");
@@ -173,7 +173,7 @@ public class ChatServiceImpl implements ChatService {
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]3번으로 예상")) {
             System.out.println("[prompt전환]3번으로 예상");
-            memory.add(SystemMessage.from(systemPrompt + attitude));
+            memory.add(SystemMessage.from(recommendPrompt + attitude));
             promptProcessing.put(userId, true);
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]4번으로 예상")){
