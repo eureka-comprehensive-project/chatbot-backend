@@ -1,13 +1,12 @@
 package com.comprehensive.eureka.chatbot.chatroom.controller;
 
 import com.comprehensive.eureka.chatbot.chatroom.dto.ChatRoomListResponseDto;
+import com.comprehensive.eureka.chatbot.chatroom.dto.CreateChatRoomRequestDto;
+import com.comprehensive.eureka.chatbot.chatroom.dto.CreateChatRoomResponseDto;
 import com.comprehensive.eureka.chatbot.chatroom.service.ChatRoomService;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/chatbot")
@@ -25,4 +24,9 @@ public class ChatRoomController {
         return BaseResponseDto.success(result);
     }
 
+    @PostMapping("/create-chat-room")
+    public BaseResponseDto<CreateChatRoomResponseDto> createChatRoom(@RequestBody CreateChatRoomRequestDto request) {
+        CreateChatRoomResponseDto result = chatRoomService.createChatRoom(request.getUserId());
+        return BaseResponseDto.success(result);
+    }
 }

@@ -2,6 +2,7 @@ package com.comprehensive.eureka.chatbot.chatroom.service;
 
 import com.comprehensive.eureka.chatbot.chatroom.dto.ChatRoomInfoDto;
 import com.comprehensive.eureka.chatbot.chatroom.dto.ChatRoomListResponseDto;
+import com.comprehensive.eureka.chatbot.chatroom.dto.CreateChatRoomResponseDto;
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,6 +56,22 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return ChatRoomListResponseDto.builder()
                 .chatRooms(chatRoomInfoList)
                 .hasNext(hasNext)
+                .build();
+    }
+
+    @Override
+    public CreateChatRoomResponseDto createChatRoom(Long userId) {
+        log.info("[createChatRoom] 채팅방 생성 요청 - userId: {}", userId);
+
+        ChatRoom chatRoom = new ChatRoom();
+        chatRoom.setUserId(userId);
+        chatRoom.setCreatedAt(LocalDateTime.now());
+
+        ChatRoom saved = chatRoomRepository.save(chatRoom);
+
+        return CreateChatRoomResponseDto.builder()
+                .chatRoomId(saved.getChatRoomId())
+                .createdAt(saved.getCreatedAt())
                 .build();
     }
 }
