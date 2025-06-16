@@ -4,13 +4,11 @@ import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
-import com.comprehensive.eureka.chatbot.config.isProcessing;
 import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.UserPreferenceDto;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
-import com.comprehensive.eureka.chatbot.prompt.dto.PromptDto;
 import com.comprehensive.eureka.chatbot.prompt.service.PromptServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.time.ZoneId;
 import com.fasterxml.jackson.databind.ObjectMapper;
 @Slf4j
 @Service
@@ -92,7 +91,7 @@ public class ChatServiceImpl implements ChatService {
     private final Map<Long, Boolean> firstChatActivated = new ConcurrentHashMap<>();
 
     private final BadwordServiceImpl badWordService;
-    private final PromptServiceImpl promptServiceImpl;
+    private final PromptServiceImpl promptService;
 
     @Override
     @Transactional
@@ -159,7 +158,7 @@ public class ChatServiceImpl implements ChatService {
         saveChatMessage(userId, response, true);
 
         //매 답변마다의 감정코드에 맞는 chatbot의 태도 추출
-//        String attitude = promptServiceImpl.getPromptBySentimentName(sentiment).getScenario();
+//        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
         String attitude = "정보 제공성 말투";
         //매 답변마다 혹시 prompt 전환여지가 있었는지 분석
         if(response.contains("[prompt전환]1번으로 예상")){
@@ -258,7 +257,14 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setUserId(userId);
         chatMessage.setMessage(message);
         chatMessage.setBot(isBot);
-        chatMessage.setTimestamp(LocalDateTime.now());
+
+        // LocalDateTime -> 유닉스 타임스탬프 (초 단위)
+        long unixTimestamp = LocalDateTime.now()
+                .atZone(ZoneId.systemDefault())
+                .toEpochSecond();
+
+        chatMessage.setTimestamp(unixTimestamp);
+
         chatMessageRepository.save(chatMessage);
     }
     private void saveForbiddenWordRecord(Long userId,String message){
