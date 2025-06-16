@@ -234,7 +234,6 @@ public class ChatServiceImpl implements ChatService {
                     return "추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.";
                 }
 
-                // 추천된 모든 요금제 정보를 하나의 문자열로 합칩니다.
                 String finalReply = "고객님께 다음 요금제들을 추천해 드립니다.\n\n" +
                         recommendPlans.stream()
                                 .map(recommend -> {
@@ -295,13 +294,12 @@ public class ChatServiceImpl implements ChatService {
                 UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
 
                 log.info("preference : {}", preference);
-                List<RecommendPlanDto> recommendPlans = sendToRecommendationModule(preference, userId);
-                log.info("recommendPlans : {}", recommendPlans);
+                RecommendationResponseDto recommendationResponse = sendToRecommendationModule(preference, userId);
+                List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
                     return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
                 }
 
-                // 추천된 모든 요금제 정보를 하나의 문자열로 합칩니다.
                 String recommendationsText = recommendPlans.stream()
                         .map(recommend -> {
                             PlanDto plan = recommend.getPlan();
@@ -324,7 +322,7 @@ public class ChatServiceImpl implements ChatService {
                 saveChatMessage(userId, finalReply, true);
                 return finalReply;
             } catch (Exception e) {
-                return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
         }
 
@@ -349,8 +347,8 @@ public class ChatServiceImpl implements ChatService {
         Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
         badWordService.sendBadwordRecord(userId, chatMessageId, message);
     }
-    private List<RecommendPlanDto> sendToRecommendationModule(UserPreferenceDto preference, Long userId) {
-        BaseResponseDto<List<RecommendPlanDto>> recommendBaseResponse = recommendClient.recommend(preference, userId);
+    private RecommendationResponseDto sendToRecommendationModule(UserPreferenceDto preference, Long userId) {
+        BaseResponseDto<RecommendationResponseDto> recommendBaseResponse = recommendClient.recommend(preference, userId);
         log.info("recommendBaseResponse : {}", recommendBaseResponse);
         return recommendBaseResponse.getData();
     }

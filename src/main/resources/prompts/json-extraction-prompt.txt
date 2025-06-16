@@ -27,7 +27,7 @@
   "preferenceSharedDataUsage": 10,
   "preferenceSharedDataUsageUnit": "GB",
   "preferencePrice": 50000,
-  "preferenceBenefitGroupId": "1",
+  "preferenceBenefitGroupId": 1,
   "isPreferenceFamilyData": true,
   "preferenceValueAddedCallUsage": 300
 }
