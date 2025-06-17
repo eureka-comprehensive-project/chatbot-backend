@@ -429,6 +429,7 @@ public class ChatServiceImpl implements ChatService {
                 log.info("이전 메시지부터 조회. 채팅방 ID: {}, 마지막 메시지 ID: {}", request.getChatRoomId(), request.getLastMessageId());
                 chatMessages = chatMessageRepository.findPriorMessages(
                         request.getChatRoomId(),
+                        request.getUserId(),
                         request.getLastMessageId(),
                         pageable
                 );
@@ -436,6 +437,7 @@ public class ChatServiceImpl implements ChatService {
                 log.info("최근 메시지 조회. 채팅방 ID: {}", request.getChatRoomId());
                 chatMessages = chatMessageRepository.findRecentMessages(
                         request.getChatRoomId(),
+                        request.getUserId(),
                         pageable
                 );
             }
