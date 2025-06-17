@@ -6,6 +6,7 @@ import com.comprehensive.eureka.chatbot.langchain.dto.ChatHistoryResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.ChatResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
 import com.comprehensive.eureka.chatbot.langchain.dto.ChatRequestDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public class ChatController {
 
     // 채팅 보내기
     @PostMapping
-    public ResponseEntity<BaseResponseDto<ChatResponseDto>> generateChatReply(@RequestBody ChatRequestDto request) {
+    public ResponseEntity<BaseResponseDto<ChatResponseDto>> generateChatReply(@RequestBody ChatRequestDto request) throws JsonProcessingException {
         ChatResponseDto chatResponseDto = chatService.generateReply(request.getUserId(), request.getChatRoomId(), request.getMessage());
         return ResponseEntity.ok(BaseResponseDto.success(chatResponseDto));
     }
