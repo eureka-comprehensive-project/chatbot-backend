@@ -261,7 +261,7 @@
 
     async function sendToServer(message) {
         try {
-            const response = await fetch("http://localhost:8082/chatbot/api/chat/reply", {
+            const response = await fetch("http://localhost:8082/chatbot/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: currentUserId, message,chatRoomId:1 })
@@ -273,7 +273,7 @@
                 displayMessage("bot", "오류가 발생했습니다. 다시 시도해주세요.");
             } else {
                 const data = await response.json();
-                displayMessage("bot", data.response);
+                displayMessage("bot", data.data);
             }
         } catch (error) {
             displayMessage("bot", "서버에 연결할 수 없습니다.");
