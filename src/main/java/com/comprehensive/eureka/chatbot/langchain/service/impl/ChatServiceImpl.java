@@ -269,7 +269,7 @@ public class ChatServiceImpl implements ChatService {
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
                     .chatRoomId(chatRoomId)
-                    .message(response)
+                    .message(finalReply)
                     .isBot(true)
                     .isRecommended(true)
                     .recommendationReason("mockReason")
@@ -285,7 +285,7 @@ public class ChatServiceImpl implements ChatService {
             final int MAX_RETRIES = 2;
             int attempt = 0;
             boolean valid = false;
-
+            String finalReply="";
             while (attempt < MAX_RETRIES) {
                 rawJson = chain.execute(jsonExtractionPrompt);
 
@@ -391,18 +391,18 @@ public class ChatServiceImpl implements ChatService {
                     })
                     .collect(Collectors.joining("\n"));
 
-            String finalReply = String.format(
+            finalReply = String.format(
                     "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
                     recommendationsText
             );
 
             saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
             promptProcessing.put(userId, false);
-            ChatResponseDto.of(finalReply, chatRoomId, userId);
+            return ChatResponseDto.of(finalReply, chatRoomId, userId);
 
         }
-
         return ChatResponseDto.of(response, chatRoomId, userId);
+
     }
 
     private boolean badWordCheck(Long userId, String message) {
