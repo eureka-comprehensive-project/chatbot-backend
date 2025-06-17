@@ -1,44 +1,41 @@
 package com.comprehensive.eureka.chatbot.langchain.controller;
 
+import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.ChatHistoryRequestDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.ChatHistoryResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
 import com.comprehensive.eureka.chatbot.langchain.dto.ChatRequestDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.ChatResponseDto;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.bind.annotation.*;
 
-import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @RestController
-// @RequestMapping("/api/chat")
 @RequestMapping("/chatbot/api/chat")
 @RequiredArgsConstructor
 public class ChatController {
 
     private final ChatService chatService;
 
-//    @PostMapping
-//    public ChatResponseDto chat(@RequestBody ChatRequestDto request) {
-//        String reply = chatService.generateReply(request.getUserId(), request.getMessage());
-//        return new ChatResponseDto(reply);
-//    }
-    @PostMapping
-     public ChatResponseDto chat(HttpServletRequest httpRequest) throws JsonProcessingException {
-         ContentCachingRequestWrapper requestWrapper = (ContentCachingRequestWrapper) httpRequest;
-         String body = new String(requestWrapper.getContentAsByteArray(), StandardCharsets.UTF_8);
-         ObjectMapper objectMapper = new ObjectMapper();
-         ChatRequestDto requestDto = objectMapper.readValue(body, ChatRequestDto.class);
+    // 채팅 보내기
+    @PostMapping("/reply")
+    public ResponseEntity<BaseResponseDto<String>> generateChatReply(@RequestBody ChatRequestDto request) {
+        String reply = chatService.generateReply(request.getUserId(), request.getChatRoomId(), request.getMessage());
+        return ResponseEntity.ok(BaseResponseDto.success(reply));
+    }
 
-         String reply = chatService.generateReply(requestDto.getUserId(),  requestDto.getChatRoomId(), requestDto.getMessage());
-         return new ChatResponseDto(reply);
-     }
+    // 채팅 내역 불러오기
+    @GetMapping("/history")
+    public ResponseEntity<BaseResponseDto<List<ChatHistoryResponseDto>>> getChatHistory(
+            @RequestParam Long chatRoomId,
+            @RequestParam Long userId,
+            @RequestParam(required = false) Long lastMessageId,
+            @RequestParam(defaultValue = "10") int pageSize
+    ) {
+        ChatHistoryRequestDto requestDto = new ChatHistoryRequestDto(chatRoomId, userId, lastMessageId, pageSize);
+        List<ChatHistoryResponseDto> chatHistory = chatService.getChatHistory(requestDto);
+        return ResponseEntity.ok(BaseResponseDto.success(chatHistory));
+    }
 
 }
