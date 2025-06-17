@@ -32,7 +32,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             Pageable pageable
     );
 
-    @Query("SELECT m FROM ChatMessage m WHERE m.chatRoom.chatRoomId = :chatRoomId AND m.userId = :userId AND m.isBot = false ORDER BY m.timestamp ASC")
-    Optional<ChatMessage> findFirstUserMessage(@Param("chatRoomId") Long chatRoomId, @Param("userId") Long userId);
+    @Query("SELECT m FROM ChatMessage m WHERE m.userId = :userId AND m.isBot = false AND m.timestamp = (" +
+            "SELECT MIN(m2.timestamp) FROM ChatMessage m2 WHERE m2.chatRoom.chatRoomId = m.chatRoom.chatRoomId AND m2.userId = :userId AND m2.isBot = false" +
+            ") AND m.chatRoom.chatRoomId IN :chatRoomIds")
+    List<ChatMessage> findFirstUserMessagesByChatRoomIds(@Param("userId") Long userId,
+                                                         @Param("chatRoomIds") List<Long> chatRoomIds);
 
 }
