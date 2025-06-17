@@ -29,14 +29,10 @@ public class ChatController {
     }
 
     // 채팅 내역 불러오기
-    @GetMapping("/history")
+    @PostMapping("/history")
     public ResponseEntity<BaseResponseDto<List<ChatHistoryResponseDto>>> getChatHistory(
-            @RequestParam Long chatRoomId,
-            @RequestParam Long userId,
-            @RequestParam(required = false) Long lastMessageId,
-            @RequestParam(defaultValue = "10") int pageSize
+            @RequestBody ChatHistoryRequestDto requestDto
     ) {
-        ChatHistoryRequestDto requestDto = new ChatHistoryRequestDto(chatRoomId, userId, lastMessageId, pageSize);
         List<ChatHistoryResponseDto> chatHistory = chatService.getChatHistory(requestDto);
         return ResponseEntity.ok(BaseResponseDto.success(chatHistory));
     }
