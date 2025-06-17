@@ -1,6 +1,8 @@
 package com.comprehensive.eureka.chatbot.langchain.service;
 
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
+import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
+import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
@@ -24,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +35,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.time.ZoneId;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,6 +55,7 @@ public class ChatServiceImpl implements ChatService {
     private final ObjectMapper objectMapper;
     private final RecommendClient recommendClient;
     private final SentimentClient sentimentClient;
+    private final ChatRoomRepository chatRoomRepository;
     private String systemPrompt;
     private String userInfoPrompt;
     private String funnyChatPrompt;
@@ -95,7 +103,20 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public String generateReply(Long userId, String message) {
+    public String generateReply(Long userId, Long chatRoomId, String message) {
+
+        log.info("generateReply 메서드 호출됨. 사용자 ID: {}, 채팅방 ID: {}, 메시지: {}", userId, chatRoomId, message);
+
+        // ChatRoom 조회 부분
+        ChatRoom currentChatRoom;
+        try {
+            currentChatRoom = chatRoomRepository.findById(chatRoomId)
+                    .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다. ID: " + chatRoomId));
+            log.info("채팅방 [ID: {}] 을 성공적으로 찾았습니다.", currentChatRoom.getChatRoomId());
+        } catch (IllegalArgumentException e) {
+            log.error("채팅방 조회 중 오류 발생: {}. 요청된 채팅방 ID: {}", e.getMessage(), chatRoomId, e);
+            throw e;
+        }
 
         //감정 분석 
         log.info("감정 분석 시작");
@@ -139,11 +160,17 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         // 사용자 메시지 저장
-        saveChatMessage(userId, message, false);
+        saveChatMessage(userId, currentChatRoom, message, false);
 
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
         try {
             if (badWordService.checkBadWord(message)) {
+                ChatMessage lastSavedMessage = chatMessageRepository.findTopByOrderByIdDesc();
+                if(lastSavedMessage != null ){
+                    badWordService.sendBadwordRecord(userId, lastSavedMessage.getId(), message);
+                } else {
+                    log.warn("No message found to link with bad word for userId : {}", userId);
+                }
                 saveForbiddenWordRecord(userId,message);
                 return "부적절한 표현이 감지되어 답변할 수 없습니다." + message;
             }
@@ -155,7 +182,7 @@ public class ChatServiceImpl implements ChatService {
 
         // GPT 응답
         String response = chain.execute(message);
-        saveChatMessage(userId, response, true);
+        saveChatMessage(userId, currentChatRoom, response, true);
 
         //매 답변마다의 감정코드에 맞는 chatbot의 태도 추출
 //        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
@@ -243,7 +270,7 @@ public class ChatServiceImpl implements ChatService {
                         plan.getPlanName(), plan.getMonthlyFee(), plan.getAdditionalCallAllowance()
                 );
 
-                saveChatMessage(userId, finalReply, true);
+                saveChatMessage(userId, currentChatRoom, finalReply, true);
                 return finalReply;
             } catch (Exception e) {
                 return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
@@ -252,9 +279,14 @@ public class ChatServiceImpl implements ChatService {
 
         return response;
     }
-    private void saveChatMessage(Long userId, String message, boolean isBot) {
+
+    private void saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot) {
+        log.debug("채팅 메시지 저장 준비: 사용자 ID={}, 채팅방 ID={}, 챗봇 여부={}, 메시지='{}'",
+                userId, chatRoom.getChatRoomId(), isBot, message);
+
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setUserId(userId);
+        chatMessage.setChatRoom(chatRoom);
         chatMessage.setMessage(message);
         chatMessage.setBot(isBot);
 
@@ -266,6 +298,13 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setTimestamp(unixTimestamp);
 
         chatMessageRepository.save(chatMessage);
+
+        try {
+            chatMessageRepository.save(chatMessage);
+            log.info("채팅 메시지 성공적으로 저장됨. ID: {}", chatMessage.getId());
+        } catch (Exception e) {
+            log.error("채팅 메시지 DB 저장 실패! 사용자 ID: {}, 채팅방 ID: {}. 메시지: '{}'", userId, chatRoom.getChatRoomId(), message, e);
+        }
     }
     private void saveForbiddenWordRecord(Long userId,String message){
         Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
@@ -275,5 +314,62 @@ public class ChatServiceImpl implements ChatService {
         BaseResponseDto<RecommendationResponseDto> recommend = recommendClient.recommend(preference);
         log.info("recommend : {}", recommend);
         return recommend.getData();
+    }
+
+    @Transactional
+    public List<ChatHistoryResponseDto> getChatHistory(ChatHistoryRequestDto request) {
+        log.info("채팅 이력 조회 요청. 채팅방 ID: {}, 사용자 ID: {}, 마지막 메시지 ID: {}, 페이지 크기: {}",
+                request.getChatRoomId(), request.getUserId(), request.getLastMessageId(), request.getPageSize());
+
+        Pageable pageable = PageRequest.of(0, request.getPageSize());
+        List<ChatMessage> chatMessages;
+
+        try {
+            if(request.getLastMessageId() != null) {
+                log.info("이전 메시지부터 조회. 채팅방 ID: {}, 마지막 메시지 ID: {}", request.getChatRoomId(), request.getLastMessageId());
+                chatMessages = chatMessageRepository.findPriorMessages(
+                        request.getChatRoomId(),
+                        request.getLastMessageId(),
+                        pageable
+                );
+            } else {
+                log.info("최근 메시지 조회. 채팅방 ID: {}", request.getChatRoomId());
+                chatMessages = chatMessageRepository.findRecentMessages(
+                        request.getChatRoomId(),
+                        pageable
+                );
+            }
+            log.info("조회된 메시지 수: {}", chatMessages.size());
+
+            return chatMessages.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("채팅 이력 조회 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("채팅 이력 조회 실패", e);
+        }
+    }
+
+    private ChatHistoryResponseDto convertToDto(ChatMessage chatMessage) {
+        log.debug("ChatMessage를 DTO로 변환 중: 메시지 ID={}, 내용='{}'", chatMessage.getId(), chatMessage.getMessage());
+        LocalDateTime localDateTime;
+        try {
+            localDateTime = Instant.ofEpochSecond(chatMessage.getTimestamp())
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+            log.debug("타임스탬프 변환 성공: {} -> {}", chatMessage.getTimestamp(), localDateTime);
+        } catch (Exception e) {
+            log.error("타임스탬프 변환 중 오류 발생. 원본 타임스탬프: {}", chatMessage.getTimestamp(), e);
+            throw new RuntimeException("타임스탬프 변환 오류", e);
+        }
+
+        return new ChatHistoryResponseDto(
+                chatMessage.getId(),
+                chatMessage.getMessage(),
+                chatMessage.getUserId(),
+                chatMessage.getChatRoom().getChatRoomId(),
+                chatMessage.isBot(),
+                localDateTime
+        );
     }
 }
