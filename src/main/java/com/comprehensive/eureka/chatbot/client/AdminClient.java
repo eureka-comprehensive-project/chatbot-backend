@@ -18,8 +18,8 @@ public class AdminClient {
 
     public BaseResponseDto<Object> insertForbiddenWordRecord(UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto) {
         return webClientUtil.post(
-                        "http://localhost:8086/admin/forbidden-words/chats",
-//                "https://www.visiblego.com/admin/forbidden-words/chats",
+//                "http://localhost:8086/admin/forbidden-words/chats",
+                "https://www.visiblego.com/admin/forbidden-words/chats",
                 userForbiddenWordsChatCreateRequestDto,
                 new ParameterizedTypeReference<>() {
                 }
@@ -29,8 +29,8 @@ public class AdminClient {
     public BaseResponseDto<List<ForbiddenWordResponseDto>> getForbiddenWords() {
         BaseResponseDto<List<ForbiddenWordResponseDto>> response =
                 webClientUtil.getWithVoid(
-                        "http://localhost:8086/admin/forbidden-words",
-//                        "https://www.visiblego.com/admin/forbidden-words",
+//                        "http://localhost:8086/admin/forbidden-words",
+                        "https://www.visiblego.com/admin/forbidden-words",
                         null,
                         new ParameterizedTypeReference<BaseResponseDto<List<ForbiddenWordResponseDto>>>() {}
                 );
