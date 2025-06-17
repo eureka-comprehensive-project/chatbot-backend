@@ -26,9 +26,15 @@ public class BadwordServiceImpl implements BadwordService {
     @Override
     public Set<String> getAllForbiddendWords() {
         Set<String> forbiddenWords = new HashSet<>();
-        for(ForbiddenWordResponseDto forbiddenWordResponseDto: adminClient.getForbiddenWords().getData()){
-            log.info("현재 forbidden words : "+forbiddenWordResponseDto.getWord());
-            forbiddenWords.add(forbiddenWordResponseDto.getWord());
+        //admin 모듈로 호출 방식
+//        for(ForbiddenWordResponseDto forbiddenWordResponseDto: adminClient.getForbiddenWords().getData()){ 
+//            log.info("현재 forbidden words : "+forbiddenWordResponseDto.getWord());
+//            forbiddenWords.add(forbiddenWordResponseDto.getWord());
+//        }
+        //redis 직접 연결
+        for(String word: redisService.getAllForbiddenWords()){
+            log.info("현재 forbidden words : "+word);
+            forbiddenWords.add(word);
         }
 
         return forbiddenWords;
