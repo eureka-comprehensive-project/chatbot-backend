@@ -13,10 +13,10 @@ import java.util.Set;
 
 public interface BadwordService {
 
-    void createBadWord(BadwordRequest badwordRequest);
+//    void createBadWord(BadwordRequest badwordRequest);
 
     Set<String> getAllForbiddendWords();
     boolean checkBadWord(String message) throws JsonProcessingException;
     void sendBadwordRecord(Long userId, Long chatMesageId, String message);
-    void deleteBadWord(String word);
+//    void deleteBadWord(String word);
 }

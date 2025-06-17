@@ -38,12 +38,11 @@ public class WebClientUtil {
     }
 
     public <R> BaseResponseDto<R> getWithVoid(String url, Map<String, Object> queryParams, ParameterizedTypeReference<BaseResponseDto<R>> responseType) {
-        URI uri = UriComponentsBuilder.fromPath(url)
+        URI uri = UriComponentsBuilder.fromUriString(url)
                 .queryParams(CollectionUtils.toMultiValueMap(queryParams))
                 .build()
                 .encode()
                 .toUri();
-
         return webClient
                 .method(HttpMethod.GET)
                 .uri(uri)
