@@ -19,7 +19,7 @@ public class ChatController {
     private final ChatService chatService;
 
     // 채팅 보내기
-    @PostMapping("/reply")
+    @PostMapping
     public ResponseEntity<BaseResponseDto<String>> generateChatReply(@RequestBody ChatRequestDto request) {
         String reply = chatService.generateReply(request.getUserId(), request.getChatRoomId(), request.getMessage());
         return ResponseEntity.ok(BaseResponseDto.success(reply));
