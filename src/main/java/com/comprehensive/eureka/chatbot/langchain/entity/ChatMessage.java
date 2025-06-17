@@ -1,5 +1,6 @@
 package com.comprehensive.eureka.chatbot.langchain.entity;
 
+import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -12,6 +13,10 @@ public class ChatMessage {
     private Long id;
 
     private Long userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_room_id")
+    private ChatRoom chatRoom;
 
     @Lob
     private String message;
