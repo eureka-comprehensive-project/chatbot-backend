@@ -261,10 +261,10 @@
 
     async function sendToServer(message) {
         try {
-            const response = await fetch("http://localhost:8082/chatbot/api/chat", {
+            const response = await fetch("http://localhost:8082/chatbot/api/chat/reply", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: currentUserId, message })
+                body: JSON.stringify({ userId: currentUserId, message,chatRoomId:1 })
             });
 
             if (response.status === 400) {
