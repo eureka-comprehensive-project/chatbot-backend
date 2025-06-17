@@ -177,7 +177,7 @@ public class ChatServiceImpl implements ChatService {
         // 키워드 필터링 작업
         boolean checkResult = badWordCheck(userId, message);
         if (checkResult) {
-            return ChatResponseDto.fail("잘못된 키워드 입니다.", chatResponseDto);
+            return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
 
         // GPT 응답
