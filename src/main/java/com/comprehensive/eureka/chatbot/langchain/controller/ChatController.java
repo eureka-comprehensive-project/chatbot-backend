@@ -37,7 +37,7 @@ public class ChatController {
          ObjectMapper objectMapper = new ObjectMapper();
          ChatRequestDto requestDto = objectMapper.readValue(body, ChatRequestDto.class);
 
-         String reply = chatService.generateReply(requestDto.getUserId(), requestDto.getMessage());
+         String reply = chatService.generateReply(requestDto.getUserId(),  requestDto.getChatRoomId(), requestDto.getMessage());
          return new ChatResponseDto(reply);
      }
 
