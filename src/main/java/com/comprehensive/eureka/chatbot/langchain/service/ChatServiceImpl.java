@@ -192,9 +192,9 @@ public class ChatServiceImpl implements ChatService {
         saveChatMessage(userId, currentChatRoom, response, true);
 
         //매 답변마다의 감정코드에 맞는 chatbot의 태도 추출
-//        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
-        String attitude = "정보 제공성 말투";
-        //매 답변마다 혹시 prompt 전환여지가 있었는지 분석
+        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
+//        String attitude = "정보 제공성 말투";
+        //매 gpt답변마다 prompt 전환 의지를 파악했는지 탐지
         if(response.contains("[prompt전환]1번으로 예상")){
             log.info("[prompt전환]1번으로 예상");
             memory.add(SystemMessage.from(userInfoPrompt + attitude));
@@ -212,10 +212,8 @@ public class ChatServiceImpl implements ChatService {
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]4번으로 예상")){
             log.info("[prompt전환]4번으로 예상");
-//            memory.add(SystemMessage.from("못알아 들었습니다 라고 한다, " + attitude));
             promptProcessing.put(userId, false);
-//            response = chain.execute(message);
-            return("못알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요");
+            return("못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요");
         }
 
         //사용자 정보 제공 완료 감지
@@ -283,6 +281,7 @@ public class ChatServiceImpl implements ChatService {
                 return finalReply;
 
             } catch (Exception e) {
+                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 log.error(e.getMessage(), e);
                 return "키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
@@ -328,6 +327,7 @@ public class ChatServiceImpl implements ChatService {
                 }
 
                 if (!valid) {
+                    promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                     return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 }
 
@@ -338,6 +338,7 @@ public class ChatServiceImpl implements ChatService {
                 log.info("recommendationResponse : {}", recommendationResponse);
                 List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
+                    promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                     return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
                 }
 
@@ -357,15 +358,17 @@ public class ChatServiceImpl implements ChatService {
                         .collect(Collectors.joining("\n"));
 
                 String finalReply = String.format(
-                        "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
+                        "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
                         recommendationsText
                 );
 
                 saveChatMessage(userId, currentChatRoom, finalReply, true);
                 promptProcessing.put(userId,false);
+
                 return finalReply;
             } catch (Exception e) {
                 e.printStackTrace();
+                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
 
