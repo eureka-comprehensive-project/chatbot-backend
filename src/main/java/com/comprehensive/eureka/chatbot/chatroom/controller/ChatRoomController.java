@@ -1,5 +1,6 @@
 package com.comprehensive.eureka.chatbot.chatroom.controller;
 
+import com.comprehensive.eureka.chatbot.chatroom.dto.ChatRoomListRequestDto;
 import com.comprehensive.eureka.chatbot.chatroom.dto.ChatRoomListResponseDto;
 import com.comprehensive.eureka.chatbot.chatroom.dto.CreateChatRoomRequestDto;
 import com.comprehensive.eureka.chatbot.chatroom.dto.CreateChatRoomResponseDto;
@@ -14,13 +15,13 @@ import org.springframework.web.bind.annotation.*;
 public class ChatRoomController {
     private final ChatRoomService chatRoomService;
 
-    @GetMapping("/chat-room-list")
-    public BaseResponseDto<ChatRoomListResponseDto> getChatRoomList(
-            @RequestParam Long userId,
-            @RequestParam(required = false) Long chatRoomId,
-            @RequestParam(defaultValue = "10") int size) {
-
-        ChatRoomListResponseDto result = chatRoomService.getChatRoomList(userId, chatRoomId, size);
+    @PostMapping("/chat-room-list")
+    public BaseResponseDto<ChatRoomListResponseDto> getChatRoomList(@RequestBody ChatRoomListRequestDto requestDto) {
+        ChatRoomListResponseDto result = chatRoomService.getChatRoomList(
+                requestDto.getUserId(),
+                requestDto.getChatRoomId(),
+                requestDto.getSize()
+        );
         return BaseResponseDto.success(result);
     }
 

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -37,19 +38,30 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // 실제로 응답할 목록은 size까지만 자름
         List<ChatRoom> displayRooms = chatRooms.stream().limit(size).toList();
 
-        List<ChatRoomInfoDto> chatRoomInfoList = displayRooms.stream().map(room -> {
-            String firstMessage = chatMessageRepository
-                    .findFirstUserMessage(room.getChatRoomId(), userId)
-                    .map(ChatMessage::getMessage)
-                    .orElse("");
+        // chatRoomIds 추출
+        List<Long> chatRoomIds = displayRooms.stream()
+                .map(ChatRoom::getChatRoomId)
+                .collect(Collectors.toList());
 
-            return ChatRoomInfoDto.builder()
-                    .chatRoomId(room.getChatRoomId())
-                    .userId(room.getUserId())
-                    .createdAt(room.getCreatedAt())
-                    .firstMessage(firstMessage)
-                    .build();
-        }).collect(Collectors.toList());
+        // 채팅방별 첫 메시지 한 번에 조회
+        List<ChatMessage> messages = chatMessageRepository.findFirstUserMessagesByChatRoomIds(userId, chatRoomIds);
+
+        // Map<chatRoomId, message>로 변환
+        Map<Long, String> firstMessageMap = messages.stream()
+                .collect(Collectors.toMap(
+                        msg -> msg.getChatRoom().getChatRoomId(),
+                        ChatMessage::getMessage
+                ));
+
+        // ChatRoomInfoDto 만들기
+        List<ChatRoomInfoDto> chatRoomInfoList = displayRooms.stream()
+                .map(room -> ChatRoomInfoDto.builder()
+                        .chatRoomId(room.getChatRoomId())
+                        .userId(room.getUserId())
+                        .createdAt(room.getCreatedAt())
+                        .firstMessage(firstMessageMap.getOrDefault(room.getChatRoomId(), ""))
+                        .build())
+                .collect(Collectors.toList());
 
         boolean hasNext = chatRooms.size() > size;
 
