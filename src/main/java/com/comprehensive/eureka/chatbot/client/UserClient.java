@@ -14,7 +14,8 @@ public class UserClient {
 
     public BaseResponseDto<Object> getUserProfile(UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto) {
         return webClientUtil.post(
-                "http://localhost:808/user/profile",
+                "https://www.visiblego.com/user/profile",
+//                "http://localhost:808/user/profile",
                 userForbiddenWordsChatCreateRequestDto,
                 new ParameterizedTypeReference<>() {
                 }

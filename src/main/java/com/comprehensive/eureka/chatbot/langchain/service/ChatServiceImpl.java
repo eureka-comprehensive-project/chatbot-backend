@@ -3,6 +3,7 @@ package com.comprehensive.eureka.chatbot.langchain.service;
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
+import com.comprehensive.eureka.chatbot.client.PlanClient;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
@@ -13,6 +14,7 @@ import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageReposito
 import com.comprehensive.eureka.chatbot.prompt.service.PromptServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
@@ -56,6 +58,7 @@ public class ChatServiceImpl implements ChatService {
     private final SentimentClient sentimentClient;
     private final ChatRoomRepository chatRoomRepository;
     private String systemPrompt;
+    private final PlanClient planClient;
     private String recommendPrompt;
     private String userInfoPrompt;
     private String funnyChatPrompt;
@@ -265,12 +268,26 @@ public class ChatServiceImpl implements ChatService {
                                 .map(recommend -> {
                                     PlanDto plan = recommend.getPlan();
                                     return String.format(
-                                            "요금제: '%s'\n- 월정액: %s원\n- 제공량: %s %s (통화량: %s분)\n",
+                                            "요금제: '%s'\n" +
+                                                    "- 월정액: %d원\n" +
+                                                    "- 제공량: %d %s\n" +
+                                                    "- 제공 기간: %s\n" +
+                                                    "- 테더링 데이터: %d %s\n" +
+                                                    "- 음성 통화량: %d분\n" +
+                                                    "- 추가 통화 허용량: %d분\n" +
+                                                    "- 가족 결합 가능: %s\n" +
+                                                    "- 카테고리: %s\n",
                                             plan.getPlanName(),
                                             plan.getMonthlyFee(),
                                             plan.getDataAllowance(),
                                             plan.getDataAllowanceUnit(),
-                                            plan.getAdditionalCallAllowance()
+                                            plan.getDataPeriod(),
+                                            plan.getTetheringDataAmount(),
+                                            plan.getTetheringDataUnit(),
+                                            plan.getVoiceCallAmount(),
+                                            plan.getAdditionalCallAllowance(),
+                                            plan.isFamilyDataEnabled() ? "가능" : "불가능",
+                                            plan.getPlanCategory()
                                     );
                                 })
                                 .collect(Collectors.joining("\n"));
@@ -289,6 +306,7 @@ public class ChatServiceImpl implements ChatService {
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
+                promptProcessing.put(userId,false);
                 JsonNode root = null;
                 String rawJson;
                 final int MAX_RETRIES = 2;
@@ -297,6 +315,29 @@ public class ChatServiceImpl implements ChatService {
 
                 while (attempt < MAX_RETRIES) {
                     rawJson = chain.execute(jsonExtractionPrompt);
+
+                    log.info("rawJson 브라켓 추출하기 전: {}", rawJson);
+                    // START: 대괄호 안 혜택 추출 로직 추가
+                    int bracketStart = rawJson.indexOf('[');
+                    int bracketEnd = rawJson.indexOf(']');
+                    String premiumBenefit = null;
+                    String mediaBenefit = null;
+                    if (bracketStart >= 0 && bracketEnd > bracketStart) {
+                        String bracketContent = rawJson.substring(bracketStart + 1, bracketEnd);
+                        String[] parts = bracketContent.split("\\|");
+                        if (parts.length > 0) premiumBenefit = parts[0].trim();
+                        if (parts.length > 1) mediaBenefit = parts[1].trim();
+                    }
+                    BenefitRequestDto benefitDto = new BenefitRequestDto();
+                    benefitDto.setPremium(premiumBenefit);
+                    benefitDto.setMedia(mediaBenefit);
+                    log.info("premiumBenefit : {}", premiumBenefit);
+                    log.info("mediaBenefit : {}", mediaBenefit);
+
+                    // PlanClient로 혜택 그룹 ID 조회
+                    Long benefitGroupId = planClient.getBenefitIds(benefitDto);
+                    log.info("BenefitGroupId: {}", benefitGroupId);
+
 
                     int start = rawJson.indexOf('{');
                     int end = rawJson.lastIndexOf('}');
@@ -309,8 +350,12 @@ public class ChatServiceImpl implements ChatService {
                     }
                     log.info("rawJson : {}", rawJson);
                     root = objectMapper.readTree(rawJson);
-                    log.info("root : {}", root);
                     // UserPreferenceDto 필드 유효성 검사
+
+                    if (root instanceof ObjectNode) {
+                        ((ObjectNode) root).put("preferenceBenefitGroupId", benefitGroupId.intValue());
+                    }
+                    log.info("root : {}", root);
 
                     if (root.get("preferenceDataUsage").isInt()
                             && root.get("preferenceDataUsageUnit").isTextual()
@@ -325,6 +370,8 @@ public class ChatServiceImpl implements ChatService {
                     }
                     attempt++;
                 }
+
+                log.info("final root : {}", root);
 
                 if (!valid) {
                     promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
@@ -347,12 +394,26 @@ public class ChatServiceImpl implements ChatService {
                             PlanDto plan = recommend.getPlan();
                             log.info("plan : {}", plan);
                             return String.format(
-                                    "요금제: '%s'\n- 월정액: %s원\n- 제공량: %s %s (통화량: %s분)\n",
+                                    "요금제: '%s'\n" +
+                                            "- 월정액: %d원\n" +
+                                            "- 제공량: %d %s\n" +
+                                            "- 제공 기간: %s\n" +
+                                            "- 테더링 데이터: %d %s\n" +
+                                            "- 음성 통화량: %d분\n" +
+                                            "- 추가 통화 허용량: %d분\n" +
+                                            "- 가족 결합 가능: %s\n" +
+                                            "- 카테고리: %s\n",
                                     plan.getPlanName(),
                                     plan.getMonthlyFee(),
                                     plan.getDataAllowance(),
                                     plan.getDataAllowanceUnit(),
-                                    plan.getAdditionalCallAllowance()
+                                    plan.getDataPeriod(),
+                                    plan.getTetheringDataAmount(),
+                                    plan.getTetheringDataUnit(),
+                                    plan.getVoiceCallAmount(),
+                                    plan.getAdditionalCallAllowance(),
+                                    plan.isFamilyDataEnabled() ? "가능" : "불가능",
+                                    plan.getPlanCategory()
                             );
                         })
                         .collect(Collectors.joining("\n"));
