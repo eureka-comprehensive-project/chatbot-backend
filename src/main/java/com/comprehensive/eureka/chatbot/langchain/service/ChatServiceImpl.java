@@ -249,9 +249,8 @@ public class ChatServiceImpl implements ChatService {
                                 })
                                 .collect(Collectors.joining("\n"));
 
-                finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 어떠셨어요? 제 추천결과에 대한 반응을 해주세요!";
+                finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 saveChatMessage(userId, finalReply, true);
-                memory.add(SystemMessage.from(whatTodoPrompt));
                 promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 return finalReply;
 
@@ -333,7 +332,7 @@ public class ChatServiceImpl implements ChatService {
                         .collect(Collectors.joining("\n"));
 
                 String finalReply = String.format(
-                        "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 어떠셨어요? 제 추천결과에 대한 반응을 해주세요!",
+                        "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
                         recommendationsText
                 );
 
