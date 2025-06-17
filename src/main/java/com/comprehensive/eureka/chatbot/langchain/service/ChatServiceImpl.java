@@ -112,8 +112,8 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public String generateReply(Long userId, Long chatRoomId, String message) {
-
+    public ChatResponseDto generateReply(Long userId, Long chatRoomId, String message) {
+        String talk = "";
         log.info("generateReply 메서드 호출됨. 사용자 ID: {}, 채팅방 ID: {}, 메시지: {}", userId, chatRoomId, message);
 
         // ChatRoom 조회 부분
@@ -135,7 +135,7 @@ public class ChatServiceImpl implements ChatService {
             ObjectMapper objectMapper = new ObjectMapper();
             sentiment = objectMapper.readTree(sentimentJson).get("sentiment").asText();
         }catch(Exception e){
-            return "감정 분석 결과 parsing 실패";
+            talk = "감정 분석 결과 parsing 실패";
         }
 
 
@@ -170,7 +170,7 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         // 사용자 메시지 저장
-        saveChatMessage(userId, currentChatRoom, message, false);
+        saveChatMessage(userId, currentChatRoom, message, false,false, "mockReaseon");
 
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
         try {
@@ -182,18 +182,17 @@ public class ChatServiceImpl implements ChatService {
                     log.warn("No message found to link with bad word for userId : {}", userId);
                 }
                 saveForbiddenWordRecord(userId,message);
-                return "부적절한 표현이 감지되어 답변할 수 없습니다. 제대로 답변해주세요";
+                talk = "부적절한 표현이 감지되어 답변할 수 없습니다. 제대로 답변해주세요";
             }
         } catch (Exception e) {
-            return "부적절한 표현 감지 중 오류 발생";
+            return ChatResponseDto.of("부적절한 표현 감지 중 오류 발생",chatRoomId,userId);
         }
 
         // TODO
 
         // GPT 응답
         String response = chain.execute(message);
-        saveChatMessage(userId, currentChatRoom, response, true);
-
+        saveChatMessage(userId, currentChatRoom, response, true, false,"mockReason");
         //매 답변마다의 감정코드에 맞는 chatbot의 태도 추출
         String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
 //        String attitude = "정보 제공성 말투";
@@ -216,7 +215,7 @@ public class ChatServiceImpl implements ChatService {
         }else if(response.contains("[prompt전환]4번으로 예상")){
             log.info("[prompt전환]4번으로 예상");
             promptProcessing.put(userId, false);
-            return("못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요");
+            return ChatResponseDto.of("못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",chatRoomId,userId);
         }
 
         //사용자 정보 제공 완료 감지
@@ -226,6 +225,7 @@ public class ChatServiceImpl implements ChatService {
             promptProcessing.put(userId,false);
             log.info("사용자 정보 제공 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+            return ChatResponseDto.of(response,chatRoomId,userId);
         }
 
         //심심풀이 완료 감지
@@ -233,6 +233,7 @@ public class ChatServiceImpl implements ChatService {
             promptProcessing.put(userId,false);
             log.info("심심풀이 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+            return ChatResponseDto.of(response,chatRoomId,userId);
         }
 
 
@@ -253,14 +254,14 @@ public class ChatServiceImpl implements ChatService {
                 }
 
                 if (!validKeyword) {
-                    return "키워드 추출 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                    return ChatResponseDto.of("키워드 추출 중 오류가 발생했습니다. 다시 시도해 주세요.",chatRoomId,userId);
                 }
 
 
                 log.info("extractedKeyword : {}", extractedKeyword);
                 List<RecommendPlanDto> recommendPlans = sendKeywordToRecommendationModule(extractedKeyword);
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
-                    return "추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.";
+                    return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.",chatRoomId,userId);
                 }
 
                 String finalReply = "고객님께 다음 요금제들을 추천해 드립니다.\n\n" +
@@ -293,14 +294,24 @@ public class ChatServiceImpl implements ChatService {
                                 .collect(Collectors.joining("\n"));
 
                 finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
-                saveChatMessage(userId, currentChatRoom, finalReply, true);
+                saveChatMessage(userId, currentChatRoom, finalReply, true,true, "mockReason");
                 promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                return finalReply;
+                ChatResponseDto chatResponseDto = ChatResponseDto.builder()
+                        .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
+                        .userId(userId)
+                        .chatRoomId(chatRoomId)
+                        .message(response)
+                        .isBot(true)
+                        .isRecommended(true)
+                        .recommendationReason("mockReason")
+                        .build();
+
+                return chatResponseDto;
 
             } catch (Exception e) {
                 promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
                 log.error(e.getMessage(), e);
-                return "키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                return ChatResponseDto.of("키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",chatRoomId,userId);
             }
         }
         // 통신성향 수집 완료 신호 감지
@@ -375,7 +386,7 @@ public class ChatServiceImpl implements ChatService {
 
                 if (!valid) {
                     promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                    return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                    return ChatResponseDto.of("통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",chatRoomId,userId);
                 }
 
                 UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
@@ -386,7 +397,7 @@ public class ChatServiceImpl implements ChatService {
                 List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
                 if (recommendPlans == null || recommendPlans.isEmpty()) {
                     promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                    return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
+                    return ChatResponseDto.of("분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.",chatRoomId,userId);
                 }
 
                 String recommendationsText = recommendPlans.stream()
@@ -423,22 +434,21 @@ public class ChatServiceImpl implements ChatService {
                         recommendationsText
                 );
 
-                saveChatMessage(userId, currentChatRoom, finalReply, true);
+                saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
                 promptProcessing.put(userId,false);
-
-                return finalReply;
+                ChatResponseDto.of(finalReply,chatRoomId,userId);
             } catch (Exception e) {
                 e.printStackTrace();
                 promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                return ChatResponseDto.of("통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",chatRoomId,userId);
             }
 
         }
 
-        return response;
+        return ChatResponseDto.of(response,chatRoomId,userId);
     }
 
-    private void saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot) {
+    private void saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecomend, String recommendReason ) {
         log.debug("채팅 메시지 저장 준비: 사용자 ID={}, 채팅방 ID={}, 챗봇 여부={}, 메시지='{}'",
                 userId, chatRoom.getChatRoomId(), isBot, message);
 

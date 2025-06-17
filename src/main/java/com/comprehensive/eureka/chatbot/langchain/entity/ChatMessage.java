@@ -1,6 +1,7 @@
 package com.comprehensive.eureka.chatbot.langchain.entity;
 
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
+import io.micrometer.common.lang.Nullable;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -24,4 +25,9 @@ public class ChatMessage {
     private boolean isBot;
 
     private Long timestamp;
+
+    @Nullable
+    private boolean isRecommend;
+    @Nullable
+    private String recoomendReason;
 }
