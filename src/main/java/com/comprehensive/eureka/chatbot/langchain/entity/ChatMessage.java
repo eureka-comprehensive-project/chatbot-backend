@@ -35,5 +35,5 @@ public class ChatMessage {
     @Nullable
     private boolean isRecommend;
     @Nullable
-    private String recoomendReason;
+    private String recommendReason;
 }

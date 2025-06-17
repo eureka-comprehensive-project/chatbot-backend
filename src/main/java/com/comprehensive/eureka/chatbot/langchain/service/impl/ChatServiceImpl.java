@@ -41,9 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -122,7 +120,7 @@ public class ChatServiceImpl implements ChatService {
 
             this.endSignalMap = Map.of(
                     "사용자 정보 제공 준비 끝", "사용자 정보 제공",
-                    "재밌는 이야기 였습니다", "심심풀이"
+                    "[END_OF_FUNNYCHAT_SCENARIO]", "심심풀이"
             );
         } catch (IOException e) {
             throw new UncheckedIOException("프롬프트 로드 중 오류 발생", e);
@@ -140,8 +138,10 @@ public class ChatServiceImpl implements ChatService {
         ChatRoom currentChatRoom = chatRoomRepository.findById(chatRoomId).orElseThrow(
                 () -> new IllegalArgumentException("채팅방을 찾을 수 없습니다. ID: " + chatRoomId)
         );
-        // 감정 분석
+        // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
+        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
+
         // 채팅방 마다 다른 memory 할당
         ChatMemory memory = chatMemoryHandler.getMemoryOfChatRoom(chatRoomId);
 
@@ -162,7 +162,7 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         // 사용자 메시지 저장
-        saveChatMessage(userId, currentChatRoom, message, false, false, "mockReaseon");
+        saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
         // 키워드 필터링 작업
         if (badWordCheck(userId, message)) {
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
@@ -170,10 +170,20 @@ public class ChatServiceImpl implements ChatService {
 
         // GPT 응답
         String response = chain.execute(message);
-        saveChatMessage(userId, currentChatRoom, response, true, false, "mockReason");
 
-        // 감정 기반 태도
-        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
+        Set<String> removeTarget = new HashSet<>(Arrays.asList(
+                "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝"
+        ));
+
+// 특정 키워드가 포함되어 있는지 검사
+        boolean shouldSave = removeTarget.stream().noneMatch(response::contains);
+
+        if (shouldSave) {
+            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
+        }
+
+
+
 
         // Prompt 전환 탐지 및 적용
         Optional<String> switchKey = detectPromptSwitch(response);
@@ -184,8 +194,10 @@ public class ChatServiceImpl implements ChatService {
             memory.add(SystemMessage.from(prompt));
             promptProcessing.put(chatRoomId, true);
             response = chain.execute(message);
+            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
         } else if (response.contains("[prompt전환]4번으로 예상")) {
             promptProcessing.put(chatRoomId, false);
+            saveChatMessage(userId, currentChatRoom, "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", true, false, "mock reason");
             return ChatResponseDto.fail("못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", chatResponseDto);
         }
 
@@ -193,7 +205,7 @@ public class ChatServiceImpl implements ChatService {
         Optional<String> endSignalKey = detectEndSignal(response);
         if (endSignalKey.isPresent()) {
             String context = endSignalMap.get(endSignalKey.get());
-            return endPromptAndRespond(context, chatRoomId, userId);
+            return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom);
         }
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
@@ -253,7 +265,8 @@ public class ChatServiceImpl implements ChatService {
                             .collect(Collectors.joining("\n"));
 
             finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
-            saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mockReason");
+            saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
+
             promptProcessing.put(userId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
 
             return ChatResponseDto.builder()
@@ -263,7 +276,7 @@ public class ChatServiceImpl implements ChatService {
                     .message(finalReply)
                     .isBot(true)
                     .isRecommended(true)
-                    .recommendationReason("mockReason")
+                    .recommendationReason("mock reason")
                     .build();
         }
         // 통신성향 수집 완료 신호 감지
@@ -337,7 +350,9 @@ public class ChatServiceImpl implements ChatService {
 
             if (!valid) {
                 promptProcessing.put(userId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                return ChatResponseDto.of("통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", chatRoomId, userId);
+                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                saveChatMessage(userId, currentChatRoom, failMessage, true, false, "mock reason");
+                return ChatResponseDto.of(failMessage, chatRoomId, userId);
             }
 
             UserPreferenceDto preference = objectMapper.treeToValue(root, UserPreferenceDto.class);
@@ -348,7 +363,9 @@ public class ChatServiceImpl implements ChatService {
             List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
             if (recommendPlans == null || recommendPlans.isEmpty()) {
                 promptProcessing.put(userId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                return ChatResponseDto.of("분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.", chatRoomId, userId);
+                String failMessage = "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
+                saveChatMessage(userId, currentChatRoom, failMessage, true, false, "mock reason");
+                return ChatResponseDto.of(failMessage, chatRoomId, userId);
             }
 
             String recommendationsText = recommendPlans.stream()
@@ -381,12 +398,13 @@ public class ChatServiceImpl implements ChatService {
                     .collect(Collectors.joining("\n"));
 
             finalReply = String.format(
-                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n",
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요\",",
                     recommendationsText
             );
 
             Long messageId = saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
             promptProcessing.put(userId, false);
+
 
             return ChatResponseDto.builder()
                     .messageId(messageId)
@@ -396,7 +414,7 @@ public class ChatServiceImpl implements ChatService {
                     .isBot(true)
                     .timestamp(LocalDateTime.now())
                     .isRecommended(true)
-                    .recommendationReason("mockReason")
+                    .recommendationReason("mock reason")
                     .build();
         }
 
@@ -414,7 +432,7 @@ public class ChatServiceImpl implements ChatService {
         return false;
     }
 
-    private Long saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecomend, String recommendReason) {
+    private Long saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecommend, String recommendReason) {
         log.debug("채팅 메시지 저장 준비: 사용자 ID={}, 채팅방 ID={}, 챗봇 여부={}, 메시지='{}'", userId, chatRoom.getChatRoomId(), isBot, message);
 
         // LocalDateTime -> 유닉스 타임스탬프 (초 단위)
@@ -425,6 +443,8 @@ public class ChatServiceImpl implements ChatService {
                 .chatRoom(chatRoom)
                 .message(message)
                 .isBot(isBot)
+                .isRecommend(isRecommend)
+                .recommendReason(recommendReason)
                 .build();
 
         chatMessage.setTimestamp(unixTimestamp);
@@ -511,10 +531,11 @@ public class ChatServiceImpl implements ChatService {
                 .findFirst();
     }
 
-    private ChatResponseDto endPromptAndRespond(String context, Long chatRoomId, Long userId) {
+    private ChatResponseDto endPromptAndRespond(String context, Long chatRoomId, Long userId,ChatRoom currentChatRoom) {
         log.info("{} 끝", context);
         promptProcessing.put(userId, false);
         String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+        saveChatMessage(userId, currentChatRoom, message, true, false, "mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);
     }
 }
