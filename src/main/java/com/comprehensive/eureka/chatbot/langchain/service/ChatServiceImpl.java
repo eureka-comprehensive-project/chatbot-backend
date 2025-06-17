@@ -7,7 +7,6 @@ import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.*;
-import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.UserPreferenceDto;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
@@ -57,17 +56,19 @@ public class ChatServiceImpl implements ChatService {
     private final SentimentClient sentimentClient;
     private final ChatRoomRepository chatRoomRepository;
     private String systemPrompt;
+    private String recommendPrompt;
     private String userInfoPrompt;
     private String funnyChatPrompt;
     private String whatTodoPrompt;
     private String jsonExtractionPrompt;
+    private String keywordExtractionPrompt;
 
     @PostConstruct
     public void loadPrompts() {
         try {
             Resource systemResource = new ClassPathResource("prompts/system-prompt.txt");
             try (InputStream in = systemResource.getInputStream()) {
-                this.systemPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                this.recommendPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             Resource systemResource2 = new ClassPathResource("prompts/infoChat-prompt.txt");
@@ -88,6 +89,11 @@ public class ChatServiceImpl implements ChatService {
             Resource jsonResource = new ClassPathResource("prompts/json-extraction-prompt.txt");
             try (InputStream in = jsonResource.getInputStream()) {
                 this.jsonExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            Resource keywordResource = new ClassPathResource("prompts/keyword-prompt.txt");
+            try (InputStream in = keywordResource.getInputStream()) {
+                this.keywordExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("프롬프트 로드 중 오류 발생", e);
@@ -118,7 +124,7 @@ public class ChatServiceImpl implements ChatService {
             throw e;
         }
 
-        //감정 분석 
+        //감정 분석
         log.info("감정 분석 시작");
         String sentimentJson = sentimentClient.determineSentiment(new DetermineSentimentDto(message));
         String sentiment = "";
@@ -128,10 +134,10 @@ public class ChatServiceImpl implements ChatService {
         }catch(Exception e){
             return "감정 분석 결과 parsing 실패";
         }
-        
+
 
         log.info("감정 분석 결과: " + sentiment);
-        
+
         //사용자 마다 다른 memory 할당
         ChatMemory memory = userMemoryMap.computeIfAbsent(userId, id -> {
             TokenWindowChatMemory newMemory = TokenWindowChatMemory.builder()
@@ -147,9 +153,10 @@ public class ChatServiceImpl implements ChatService {
 
         //만약 한 prompt의 로직이 종료 됐다면, prompt를 갈아 끼는 모드로 변경
         if (!promptProcessing.get(userId) || firstChatActivated.get(userId)){
-            System.out.println("isProcessing false");
+            log.info("prompt 전환 시작");
             firstChatActivated.put(userId,false);
             memory.add(SystemMessage.from(whatTodoPrompt));
+            log.info("prompt 전환 끝");
         }
 
 
@@ -172,12 +179,12 @@ public class ChatServiceImpl implements ChatService {
                     log.warn("No message found to link with bad word for userId : {}", userId);
                 }
                 saveForbiddenWordRecord(userId,message);
-                return "부적절한 표현이 감지되어 답변할 수 없습니다." + message;
+                return "부적절한 표현이 감지되어 답변할 수 없습니다. 제대로 답변해주세요";
             }
         } catch (Exception e) {
-            return "지금 현재 admin 모듈의 금칙어와 chatbot 모듈의 금칙어가 동기화돼있지 않아, 기록을 남길 수 없습니다. admin 모듈에서 해당 단어를 추가한 후에 다시 시도하세요";
+            return "부적절한 표현 감지 중 오류 발생";
         }
-        
+
         // TODO
 
         // GPT 응답
@@ -189,25 +196,26 @@ public class ChatServiceImpl implements ChatService {
         String attitude = "정보 제공성 말투";
         //매 답변마다 혹시 prompt 전환여지가 있었는지 분석
         if(response.contains("[prompt전환]1번으로 예상")){
-            System.out.println("[prompt전환]1번으로 예상");
+            log.info("[prompt전환]1번으로 예상");
             memory.add(SystemMessage.from(userInfoPrompt + attitude));
             promptProcessing.put(userId,true); //해당 prompt가 계속 진행되게 한다.
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]2번으로 예상")){
-            System.out.println("[prompt전환]2번으로 예상");
+            log.info("[prompt전환]2번으로 예상");
             memory.add(SystemMessage.from(funnyChatPrompt + attitude));
             promptProcessing.put(userId,true);
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]3번으로 예상")) {
-            System.out.println("[prompt전환]3번으로 예상");
-            memory.add(SystemMessage.from(systemPrompt + attitude));
+            log.info("[prompt전환]3번으로 예상");
+            memory.add(SystemMessage.from(recommendPrompt + attitude));
             promptProcessing.put(userId, true);
             response = chain.execute(message);
         }else if(response.contains("[prompt전환]4번으로 예상")){
-            System.out.println("[prompt전환]4번으로 예상");
-            memory.add(SystemMessage.from("못알아 들었습니다 라고 한다" + attitude));
+            log.info("[prompt전환]4번으로 예상");
+//            memory.add(SystemMessage.from("못알아 들었습니다 라고 한다, " + attitude));
             promptProcessing.put(userId, false);
-            response = chain.execute(message);
+//            response = chain.execute(message);
+            return("못알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요");
         }
 
         //사용자 정보 제공 완료 감지
@@ -215,21 +223,73 @@ public class ChatServiceImpl implements ChatService {
             //현재 구현 안되어 있음. todo
             //todo : 사용자 정보 api 호출후 제공
             promptProcessing.put(userId,false);
-            System.out.println("사용자 정보 제공 끝");
+            log.info("사용자 정보 제공 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
         }
 
         //심심풀이 완료 감지
         if(response.contains("재밌는 이야기 였습니다")){
             promptProcessing.put(userId,false);
-            System.out.println("심심풀이 끝");
+            log.info("심심풀이 끝");
             response = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
         }
 
+
+        if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
+            try {
+                String extractedKeyword = null;
+                final int MAX_RETRIES = 2;
+                int attempt = 0;
+                boolean validKeyword = false;
+
+                while (attempt < MAX_RETRIES) {
+                    extractedKeyword = chain.execute(keywordExtractionPrompt);
+                    if (extractedKeyword != null && !extractedKeyword.isBlank()) {
+                        validKeyword = true;
+                        break;
+                    }
+                    attempt++;
+                }
+
+                if (!validKeyword) {
+                    return "키워드 추출 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                }
+
+
+                log.info("extractedKeyword : {}", extractedKeyword);
+                List<RecommendPlanDto> recommendPlans = sendKeywordToRecommendationModule(extractedKeyword);
+                if (recommendPlans == null || recommendPlans.isEmpty()) {
+                    return "추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.";
+                }
+
+                String finalReply = "고객님께 다음 요금제들을 추천해 드립니다.\n\n" +
+                        recommendPlans.stream()
+                                .map(recommend -> {
+                                    PlanDto plan = recommend.getPlan();
+                                    return String.format(
+                                            "요금제: '%s'\n- 월정액: %s원\n- 제공량: %s %s (통화량: %s분)\n",
+                                            plan.getPlanName(),
+                                            plan.getMonthlyFee(),
+                                            plan.getDataAllowance(),
+                                            plan.getDataAllowanceUnit(),
+                                            plan.getAdditionalCallAllowance()
+                                    );
+                                })
+                                .collect(Collectors.joining("\n"));
+
+                finalReply += " \n\n 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                saveChatMessage(userId, currentChatRoom, finalReply, true);
+                promptProcessing.put(userId,false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
+                return finalReply;
+
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+                return "키워드 기반 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+            }
+        }
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
             try {
-                promptProcessing.put(userId,false);
                 JsonNode root = null;
                 String rawJson;
                 final int MAX_RETRIES = 2;
@@ -238,18 +298,29 @@ public class ChatServiceImpl implements ChatService {
 
                 while (attempt < MAX_RETRIES) {
                     rawJson = chain.execute(jsonExtractionPrompt);
-                    root = objectMapper.readTree(rawJson);
 
+                    int start = rawJson.indexOf('{');
+                    int end = rawJson.lastIndexOf('}');
+                    if (start >= 0 && end > start) {
+                        rawJson = rawJson.substring(start, end + 1);
+                    } else {
+                        log.warn("JSON 추출 실패: 유효한 JSON 객체 형식이 아닙니다.");
+                        attempt++;
+                        continue;
+                    }
+                    log.info("rawJson : {}", rawJson);
+                    root = objectMapper.readTree(rawJson);
+                    log.info("root : {}", root);
                     // UserPreferenceDto 필드 유효성 검사
-                    if (root.hasNonNull("userId") && root.get("userId").canConvertToLong()
-                            && root.hasNonNull("preferenceDataUsage") && root.get("preferenceDataUsage").isInt()
-                            && root.hasNonNull("preferenceDataUsageUnit") && root.get("preferenceDataUsageUnit").isTextual()
-                            && root.hasNonNull("preferenceSharedDataUsage") && root.get("preferenceSharedDataUsage").isInt()
-                            && root.hasNonNull("preferenceSharedDataUsageUnit") && root.get("preferenceSharedDataUsageUnit").isTextual()
-                            && root.hasNonNull("preferencePrice") && root.get("preferencePrice").isInt()
-                            && root.hasNonNull("preferenceBenefitGroupId") && root.get("preferenceBenefitGroupId").isInt()
-                            && root.hasNonNull("isPreferenceFamilyData") && root.get("isPreferenceFamilyData").isBoolean()
-                            && root.hasNonNull("preferenceValueAddedCallUsage") && root.get("preferenceValueAddedCallUsage").isInt()) {
+
+                    if (root.get("preferenceDataUsage").isInt()
+                            && root.get("preferenceDataUsageUnit").isTextual()
+                            && root.get("preferenceSharedDataUsage").isInt()
+                            && root.get("preferenceSharedDataUsageUnit").isTextual()
+                            && root.get("preferencePrice").isInt()
+                            && root.get("preferenceBenefitGroupId").isInt()
+                            && root.get("isPreferenceFamilyData").isBoolean()
+                            && root.get("preferenceValueAddedCallUsage").isInt()) {
                         valid = true;
                         break;
                     }
@@ -257,24 +328,47 @@ public class ChatServiceImpl implements ChatService {
                 }
 
                 if (!valid) {
-                    return "통신성향 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
+                    return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
                 }
 
                 UserPreferenceDto preference =objectMapper.treeToValue(root, UserPreferenceDto.class);
 
-                RecommendationResponseDto responsePlan =
-                        sendToRecommendationModule(preference);
-                PlanDto plan = responsePlan.getRecommendPlans().get(0).getPlan();
+                log.info("preference : {}", preference);
+                RecommendationResponseDto recommendationResponse = sendToRecommendationModule(preference, userId);
+                log.info("recommendationResponse : {}", recommendationResponse);
+                List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
+                if (recommendPlans == null || recommendPlans.isEmpty()) {
+                    return "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
+                }
+
+                String recommendationsText = recommendPlans.stream()
+                        .map(recommend -> {
+                            PlanDto plan = recommend.getPlan();
+                            log.info("plan : {}", plan);
+                            return String.format(
+                                    "요금제: '%s'\n- 월정액: %s원\n- 제공량: %s %s (통화량: %s분)\n",
+                                    plan.getPlanName(),
+                                    plan.getMonthlyFee(),
+                                    plan.getDataAllowance(),
+                                    plan.getDataAllowanceUnit(),
+                                    plan.getAdditionalCallAllowance()
+                            );
+                        })
+                        .collect(Collectors.joining("\n"));
+
                 String finalReply = String.format(
-                        "고객님께 추천드리는 요금제는 '%s'입니다. 월 %s원이며, %s 등이 포함되어 있습니다." + " 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
-                        plan.getPlanName(), plan.getMonthlyFee(), plan.getAdditionalCallAllowance()
+                        "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요",
+                        recommendationsText
                 );
 
                 saveChatMessage(userId, currentChatRoom, finalReply, true);
+                promptProcessing.put(userId,false);
                 return finalReply;
             } catch (Exception e) {
-                return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                e.printStackTrace();
+                return "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다!!!! 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             }
+
         }
 
         return response;
@@ -310,10 +404,16 @@ public class ChatServiceImpl implements ChatService {
         Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
         badWordService.sendBadwordRecord(userId, chatMessageId, message);
     }
-    private RecommendationResponseDto sendToRecommendationModule(UserPreferenceDto preference) {
-        BaseResponseDto<RecommendationResponseDto> recommend = recommendClient.recommend(preference);
-        log.info("recommend : {}", recommend);
-        return recommend.getData();
+    private RecommendationResponseDto sendToRecommendationModule(UserPreferenceDto preference, Long userId) {
+        BaseResponseDto<RecommendationResponseDto> recommendBaseResponse = recommendClient.recommend(preference, userId);
+        log.info("recommendBaseResponse : {}", recommendBaseResponse);
+        return recommendBaseResponse.getData();
+    }
+
+    private List<RecommendPlanDto> sendKeywordToRecommendationModule(String keyword) {
+        BaseResponseDto<List<RecommendPlanDto>> recommendBaseResponse = recommendClient.recommendByKeyword(keyword);
+        log.info("recommendBaseResponse : {}", recommendBaseResponse);
+        return recommendBaseResponse.getData();
     }
 
     @Transactional
