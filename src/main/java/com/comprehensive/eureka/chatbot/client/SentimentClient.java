@@ -18,8 +18,8 @@ public class SentimentClient {
 
     public String determineSentiment(DetermineSentimentDto determineSentimentDto) {
         String sentiment = webClientUtil.postSentiment(
-//                "http://localhost:8088/sentiment/api/predict",
-                "https://www.visiblego.com/sentiment/api/predict",
+                "http://localhost:8088/sentiment/api/predict",
+//                "https://www.visiblego.com/sentiment/api/predict",
                 determineSentimentDto
         );
         log.info("post값"+sentiment);

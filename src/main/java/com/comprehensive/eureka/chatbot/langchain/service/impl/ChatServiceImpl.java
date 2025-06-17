@@ -174,11 +174,11 @@ public class ChatServiceImpl implements ChatService {
 
         // 사용자 메시지 저장
         Long chatMessageId = saveChatMessage(userId, currentChatRoom, message, false, false, "mockReaseon");
-        // TODO 잠시 주석처리 키워드 필터링 작업
-//        boolean checkResult = badWordCheck(userId, message);
-//        if (checkResult) {
-//            return ChatResponseDto.fail("잘못된 키워드 입니다.", chatResponseDto);
-//        }
+        // 키워드 필터링 작업
+        boolean checkResult = badWordCheck(userId, message);
+        if (checkResult) {
+            return ChatResponseDto.fail("잘못된 키워드 입니다.", chatResponseDto);
+        }
 
         // GPT 응답
         String response = chain.execute(message);
