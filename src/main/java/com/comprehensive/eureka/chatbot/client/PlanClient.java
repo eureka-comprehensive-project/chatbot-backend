@@ -1,6 +1,7 @@
 package com.comprehensive.eureka.chatbot.client;
 
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.constant.DomainConstant;
 import com.comprehensive.eureka.chatbot.langchain.dto.BenefitRequestDto;
 import com.comprehensive.eureka.chatbot.util.WebClientUtil;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +15,7 @@ public class PlanClient {
     private final WebClientUtil webClientUtil;
     public Long getBenefitIds(BenefitRequestDto requestDto) {
 
-        String apiUrl = "http://localhost:8084/plan/benefit/benefit-group";
-//        String apiUrl = "https://www.visiblego.com/plan/benefit/benefit-group";
+        String apiUrl = DomainConstant.PLAN_DOMAIN+"/plan/benefit/benefit-group";
 
         BaseResponseDto<Long> response = webClientUtil.post(
                 apiUrl,

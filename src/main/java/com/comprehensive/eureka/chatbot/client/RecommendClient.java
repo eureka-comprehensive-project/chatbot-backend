@@ -10,16 +10,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import java.util.List;
-
+import com.comprehensive.eureka.chatbot.constant.DomainConstant;
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class RecommendClient {
     private final WebClientUtil webClientUtil;
-
     // 통신 성향 기반 추천
     public BaseResponseDto<RecommendationResponseDto> recommend(UserPreferenceDto preference, Long userId) {
-        String url = String.format("http://localhost:8083/recommend/%s", userId);
+
+        String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/%s", userId);
 //        String url = String.format("https://www.visiblego.com/recommend/%s", userId);
         log.info("추천 모듈로 환경설정 전송 중: {}", preference);
         return webClientUtil.post(
@@ -31,7 +31,7 @@ public class RecommendClient {
 
     // 키워드 기반 추천
     public BaseResponseDto<List<RecommendPlanDto>> recommendByKeyword(String keyword) {
-        String url = String.format("http://localhost:8083/recommend/keyword/%s", keyword);
+        String url = String.format(DomainConstant.RECOMMEND_DOMAIN+"/recommend/keyword/%s", keyword);
 //        String url = String.format("https://www.visiblego.com/recommend/keyword/%s", keyword);
         log.info("키워드를 추천 모듈로 전송 중: {}", keyword);
 
