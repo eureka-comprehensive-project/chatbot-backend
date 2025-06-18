@@ -40,6 +40,7 @@ public class ChatController {
     public ResponseEntity<BaseResponseDto<ChatMessageDetailResponseDto>> getMessageDetail(
             @RequestBody ChatMessageRequestDto request
     ) {
+
         ChatMessageDetailResponseDto detail = chatService.getChatMessageDetail(request.getId());
         return ResponseEntity.ok(BaseResponseDto.success(detail));
     }
