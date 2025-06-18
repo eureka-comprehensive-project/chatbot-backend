@@ -46,11 +46,13 @@ public class BadwordServiceImpl implements BadwordService {
 
     @Override
     public void sendBadwordRecord(Long userId,Long chatMessageId, String message){
+        log.info("저장하려는,욕설이 들어간 chat의 chatMessageId : "+chatMessageId);
         Set<String> badWords = getAllForbiddendWords();
         log.info("등록된 금칙어 개수" + chatMessageId );
         List<String> found = new ArrayList<>();
         for (String word : badWords) {
             if (message.contains(word)) {
+                log.info("message : " + message + "word : "+ word);
                 found.add(word);
             }
         }
@@ -62,7 +64,7 @@ public class BadwordServiceImpl implements BadwordService {
                 .forbiddenWords(found)
                 .build();
 
-        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료");
+        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료" + userForbiddenWordsChatCreateRequestDto.getChatMessageId() + "forbiddenwords found 의 개수"+ found.size());
         adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
         log.info("admin에 요청 완료");
     }

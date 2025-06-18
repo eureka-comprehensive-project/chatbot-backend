@@ -40,8 +40,9 @@ public class ChatController {
     public BaseResponseDto<ChatMessageDetailResponseDto> getMessageDetail(
             @RequestBody ChatMessageRequestDto request
     ) {
-
+        log.info("request : " + request);
         ChatMessageDetailResponseDto detail = chatService.getChatMessageDetail(request.getId());
+        log.info("message : " + detail.getMessage());
         return BaseResponseDto.success(detail);
     }
 }
