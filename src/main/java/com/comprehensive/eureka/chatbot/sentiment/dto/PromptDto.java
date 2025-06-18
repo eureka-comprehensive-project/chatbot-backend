@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.prompt.dto;
+package com.comprehensive.eureka.chatbot.sentiment.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.comprehensive.eureka.chatbot.prompt.entity;
+package com.comprehensive.eureka.chatbot.sentiment.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

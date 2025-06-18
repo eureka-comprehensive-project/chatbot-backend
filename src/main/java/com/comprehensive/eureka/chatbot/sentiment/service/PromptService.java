@@ -1,6 +1,6 @@
-package com.comprehensive.eureka.chatbot.prompt.service;
+package com.comprehensive.eureka.chatbot.sentiment.service;
 
-import com.comprehensive.eureka.chatbot.prompt.dto.PromptDto;
+import com.comprehensive.eureka.chatbot.sentiment.dto.PromptDto;
 
 import java.util.List;
 
