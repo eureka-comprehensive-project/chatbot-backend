@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @Builder
 public class PlanDto {
-    private Integer planId;
+    private Long planId;
     private String planName;
     private Integer monthlyFee;
     private Integer dataAllowance;
