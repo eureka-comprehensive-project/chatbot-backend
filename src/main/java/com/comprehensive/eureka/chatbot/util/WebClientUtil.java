@@ -59,6 +59,15 @@ public class WebClientUtil {
                 .bodyToMono(responseType)
                 .block();
     }
+    public <T, R> R post2(String url, T body, ParameterizedTypeReference<R> responseType, Map<String, String> headers) {
+        return webClient.post()
+                .uri(url)
+                .headers(httpHeaders -> headers.forEach(httpHeaders::add))  // 헤더 설정
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(responseType)
+                .block();
+    }
     public <T> String postSentiment(String url, T requestBody) {
         return webClient.post()
                 .uri(url)

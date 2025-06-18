@@ -1,6 +1,7 @@
 package com.comprehensive.eureka.chatbot.client;
 
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.FeedBackDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.RecommendPlanDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.RecommendationResponseDto;
 import com.comprehensive.eureka.chatbot.langchain.dto.UserPreferenceDto;
@@ -10,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import java.util.List;
+import java.util.Map;
+
 import com.comprehensive.eureka.chatbot.constant.DomainConstant;
 @Slf4j
 @Component
@@ -20,7 +23,6 @@ public class RecommendClient {
     public BaseResponseDto<RecommendationResponseDto> recommend(UserPreferenceDto preference, Long userId) {
 
         String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/%s", userId);
-//        String url = String.format("https://www.visiblego.com/recommend/%s", userId);
         log.info("추천 모듈로 환경설정 전송 중: {}", preference);
         return webClientUtil.post(
                 url,
@@ -32,7 +34,6 @@ public class RecommendClient {
     // 키워드 기반 추천
     public BaseResponseDto<List<RecommendPlanDto>> recommendByKeyword(String keyword) {
         String url = String.format(DomainConstant.RECOMMEND_DOMAIN+"/recommend/keyword/%s", keyword);
-//        String url = String.format("https://www.visiblego.com/recommend/keyword/%s", keyword);
         log.info("키워드를 추천 모듈로 전송 중: {}", keyword);
 
         return webClientUtil.<List<RecommendPlanDto>>getWithPathVariable(
@@ -40,6 +41,19 @@ public class RecommendClient {
                 keyword,
                 new ParameterizedTypeReference<BaseResponseDto<List<RecommendPlanDto>>>() {
                 }
+        );
+    }
+
+    //feedback 추천
+    public BaseResponseDto<RecommendationResponseDto> recommendAfterFeedback(FeedBackDto feedBackDto, Long userId, Long PlanId) {
+
+        String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/feedback/%s/%s", userId,PlanId);
+        log.info("추천 모듈로 환경설정 전송 중: {}", feedBackDto);
+        return webClientUtil.post2(
+                url,
+                feedBackDto,
+                new ParameterizedTypeReference<BaseResponseDto<RecommendationResponseDto>>() {},
+                Map.of("Content-Type", "application/json")  // 헤더 명시적 추가
         );
     }
 }
