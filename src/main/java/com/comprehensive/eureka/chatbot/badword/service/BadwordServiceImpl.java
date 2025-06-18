@@ -65,7 +65,7 @@ public class BadwordServiceImpl implements BadwordService {
                 .sentAt(sentAt)
                 .build();
 
-        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료" + userForbiddenWordsChatCreateRequestDto.chatMessageText() + "forbiddenwords found 의 개수"+ found.size());
+        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료" + userForbiddenWordsChatCreateRequestDto.getChatMessageText() + "forbiddenwords found 의 개수"+ found.size());
         adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
         log.info("admin에 요청 완료");
     }
