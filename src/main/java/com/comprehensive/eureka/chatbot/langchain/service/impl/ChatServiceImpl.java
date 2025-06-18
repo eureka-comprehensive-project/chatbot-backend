@@ -7,6 +7,8 @@ import com.comprehensive.eureka.chatbot.client.PlanClient;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.SentimentClient;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.common.exception.ChatException;
+import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
 import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
@@ -486,6 +488,21 @@ public class ChatServiceImpl implements ChatService {
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatMessageDetailResponseDto getChatMessageDetail(Long messageId) {
+        ChatMessage chatMsg = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new ChatException(ErrorCode.CHAT_MESSAGE_RETRIEVE_FAILED));
+
+
+        return new ChatMessageDetailResponseDto(
+                chatMsg.getId(),
+                chatMsg.getMessage(),
+                chatMsg.getTimestamp()
+        );
+    }
+
     private ChatResponseDto generatePlanRecommendReply(RecommendationResponseDto recommendationResponse, Long userId, ChatRoom currentChatRoom,Long chatRoomId,boolean isFeedback){
         String finalReply = "";
         log.info("recommendationResponse : {}", recommendationResponse);
