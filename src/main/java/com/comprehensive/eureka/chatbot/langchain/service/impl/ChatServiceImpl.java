@@ -174,9 +174,9 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         // 사용자 메시지 저장
-        Long messageId = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
+        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
         // 금칙어 필터링 작업
-        if (badWordCheck(userId, message, messageId)) {
+        if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
 
@@ -437,13 +437,13 @@ public class ChatServiceImpl implements ChatService {
 
     }
 
-    private boolean badWordCheck(Long userId, String message, Long messageId) {
+    private boolean badWordCheck(Long userId, String message, Long sentAt) {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
-        log.info("message" + message, "messageId" + messageId );
+        log.info("message" + message, "sentAt" + sentAt );
         boolean check = badWordService.checkBadWord(message);
         log.info("check" + check);
         if (check) {
-            saveForbiddenWordRecord(userId, message,messageId);
+            saveForbiddenWordRecord(userId, message,sentAt);
             log.info("saveForbiddenWordRecord 기록 완료");
             return true;
         }
@@ -451,7 +451,7 @@ public class ChatServiceImpl implements ChatService {
         return false;
     }
 
-    private Long saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecommend, String recommendReason) {
+    private ChatMessageDto saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecommend, String recommendReason) {
         log.debug("채팅 메시지 저장 준비: 사용자 ID={}, 채팅방 ID={}, 챗봇 여부={}, 메시지='{}'", userId, chatRoom.getChatRoomId(), isBot, message);
 
         // LocalDateTime -> 유닉스 타임스탬프 (초 단위)
@@ -469,13 +469,20 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setTimestamp(unixTimestamp);
 
         ChatMessage chat = chatMessageRepository.save(chatMessage);
-        return chat.getId();
+        ChatMessageDto chatMessageDto = ChatMessageDto.builder()
+                .message(chat.getMessage())
+                .timestamp(chat.getTimestamp())
+                .messageId(chat.getId())
+                .build();
+
+        return chatMessageDto;
     }
 
-    private void saveForbiddenWordRecord(Long userId, String message, Long chatMessageId) {
+    private void saveForbiddenWordRecord(Long userId, String message, Long sentAt) {
 //        Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
-        log.info("chatMessageInfo(findTopByOrderByIdDesc) : "+ chatMessageId);
-        badWordService.sendBadwordRecord(userId, chatMessageId, message);
+        log.info("chatMessageInfo(findTopByOrderByIdDesc) : "+ message);
+
+        badWordService.sendBadwordRecord(userId, sentAt, message);
         log.info("admin모듈에 전송 완료");
     }
 
@@ -599,12 +606,12 @@ public class ChatServiceImpl implements ChatService {
         }
 
 
-        Long messageId = saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
+        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
         sessionManager.getPromptProcessing().put(chatRoomId, false);
 
 
         return ChatResponseDto.builder()
-                .messageId(messageId)
+                .messageId(chatMessageDto.getMessageId())
                 .userId(userId)
                 .chatRoomId(chatRoomId)
                 .message(finalReply)

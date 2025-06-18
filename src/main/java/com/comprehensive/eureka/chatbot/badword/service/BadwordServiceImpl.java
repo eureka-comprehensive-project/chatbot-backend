@@ -45,10 +45,10 @@ public class BadwordServiceImpl implements BadwordService {
 
 
     @Override
-    public void sendBadwordRecord(Long userId,Long chatMessageId, String message){
-        log.info("저장하려는,욕설이 들어간 chat의 chatMessageId : "+chatMessageId);
+    public void sendBadwordRecord(Long userId,Long sentAt, String message){
+        log.info("저장하려는,욕설이 들어간 chat의 chatMessageId : "+ message + " sentAt" + sentAt);
         Set<String> badWords = getAllForbiddendWords();
-        log.info("등록된 금칙어 개수" + chatMessageId );
+        log.info("등록된 금칙어 개수" + badWords.size());
         List<String> found = new ArrayList<>();
         for (String word : badWords) {
             if (message.contains(word)) {
@@ -56,15 +56,16 @@ public class BadwordServiceImpl implements BadwordService {
                 found.add(word);
             }
         }
-        log.info("금칙어 사용 기록 insert 중 -> 사용한 금칙어 개수 : " + found.size() + "userId : " + userId + "chatId : " + chatMessageId );
+        log.info("금칙어 사용 기록 insert 중 -> 사용한 금칙어 개수 : " + found.size() + "userId : " + userId + "message : " + message );
 
         UserForbiddenWordsChatCreateRequestDto userForbiddenWordsChatCreateRequestDto = UserForbiddenWordsChatCreateRequestDto.builder()
                 .userId(userId)
-                .chatMessageId(chatMessageId)
+                .chatMessageText(message)
                 .forbiddenWords(found)
+                .sentAt(sentAt)
                 .build();
 
-        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료" + userForbiddenWordsChatCreateRequestDto.getChatMessageId() + "forbiddenwords found 의 개수"+ found.size());
+        log.info("UserForbiddenWordsChatCreateRequestDto 생성 완료" + userForbiddenWordsChatCreateRequestDto.getChatMessageText() + "forbiddenwords found 의 개수"+ found.size());
         adminClient.insertForbiddenWordRecord(userForbiddenWordsChatCreateRequestDto);
         log.info("admin에 요청 완료");
     }
