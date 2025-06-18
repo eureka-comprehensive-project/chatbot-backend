@@ -35,12 +35,12 @@ public class ChatController {
         return ResponseEntity.ok(BaseResponseDto.success(chatHistory));
     }
 
-    //채팅 메시지 조회
+    // 채팅 메시지 조회
     @PostMapping("/message")
-    public ResponseEntity<BaseResponseDto<ChatMessageDetailResponseDto>> getMessageDetail(
+    public BaseResponseDto<ChatMessageDetailResponseDto> getMessageDetail(
             @RequestBody ChatMessageRequestDto request
     ) {
         ChatMessageDetailResponseDto detail = chatService.getChatMessageDetail(request.getId());
-        return ResponseEntity.ok(BaseResponseDto.success(detail));
+        return BaseResponseDto.success(detail);
     }
 }
