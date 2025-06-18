@@ -12,8 +12,4 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionManager {
     private final Map<Long, Boolean> promptProcessing = new ConcurrentHashMap<>();
 
-
-    public void clear(Long id) {
-        promptProcessing.remove(id);
-    }
 }

@@ -1,6 +1,6 @@
-package com.comprehensive.eureka.chatbot.prompt.repository;
+package com.comprehensive.eureka.chatbot.sentiment.repository;
 
-import com.comprehensive.eureka.chatbot.prompt.entity.Prompt;
+import com.comprehensive.eureka.chatbot.sentiment.entity.Prompt;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
