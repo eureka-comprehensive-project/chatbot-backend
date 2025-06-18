@@ -124,7 +124,7 @@ public class ChatServiceImpl implements ChatService {
             this.endSignalMap = Map.of(
                     "사용자 정보 제공 준비 끝", "사용자 정보 제공",
                     "[END_OF_FUNNYCHAT_SCENARIO]", "심심풀이",
-                    "요금제 (피드백) 추천을 마칩니다.","피드백"
+                    "요금제 추천 끝","피드백"
             );
         } catch (IOException e) {
             throw new UncheckedIOException("프롬프트 로드 중 오류 발생", e);
@@ -207,7 +207,7 @@ public class ChatServiceImpl implements ChatService {
         Optional<String> endSignalKey = detectEndSignal(response);
         if (endSignalKey.isPresent()) {
             String context = endSignalMap.get(endSignalKey.get());
-            return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom);
+            return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whatTodoPrompt);
         }
 
 
@@ -267,7 +267,7 @@ public class ChatServiceImpl implements ChatService {
                             })
                             .collect(Collectors.joining("\n"));
 
-            finalReply += " \n\n 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요? ";
+            finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요!";
 
             saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
@@ -364,7 +364,7 @@ public class ChatServiceImpl implements ChatService {
             log.info("preference : {}", preference);
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
             recommendPlans= recommendationResponseDto.getRecommendPlans();
-            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId);
+            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId,false);
             sessionManager.getPromptProcessing().put(chatRoomId, false);
            return chatResponseDto;
         }
@@ -373,14 +373,13 @@ public class ChatServiceImpl implements ChatService {
             System.out.println(response);
             log.info("feedback 진입");
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
+            Long sentimentCode = 1L;
+            if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
             FeedBackDto feedBackDto = FeedBackDto.builder()
-                            .sentimentCode(2L)
+                            .sentimentCode(sentimentCode)
                             .detailCode(feedBackCode)
                             .build();
-            if(feedBackCode == 6L){
-                memory.add(SystemMessage.from(whatTodoPrompt));
-                return ChatResponseDto.of("요금제 (피드백) 추천을 마칩니다.",chatRoomId, userId);
-            }
+
             RecommendationResponseDto recommendationResponseDto2= null;
             if(recommendPlans == null){ // 정보수집 기반 추천 피드백
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
@@ -389,7 +388,8 @@ public class ChatServiceImpl implements ChatService {
             }
 
             sessionManager.getPromptProcessing().put(chatRoomId, false);
-            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId);
+            boolean isFeedback = true;
+            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback);
 
             return chatResponseDto;
         }
@@ -486,7 +486,7 @@ public class ChatServiceImpl implements ChatService {
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
-    private ChatResponseDto generatePlanRecommendReply(RecommendationResponseDto recommendationResponse, Long userId, ChatRoom currentChatRoom,Long chatRoomId){
+    private ChatResponseDto generatePlanRecommendReply(RecommendationResponseDto recommendationResponse, Long userId, ChatRoom currentChatRoom,Long chatRoomId,boolean isFeedback){
         String finalReply = "";
         log.info("recommendationResponse : {}", recommendationResponse);
         List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
@@ -525,11 +525,19 @@ public class ChatServiceImpl implements ChatService {
                     );
                 })
                 .collect(Collectors.joining("\n"));
+        if(isFeedback){
+            finalReply = String.format(
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 그만두시려면 \"끝\"이라고 해주세요",
+                    recommendationsText
+            );
 
-        finalReply = String.format(
-                "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s\n 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
-                recommendationsText
-        );
+        }else{
+            finalReply = String.format(
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
+                    recommendationsText
+            );
+        }
+
 
         Long messageId = saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
         sessionManager.getPromptProcessing().put(chatRoomId, false);
@@ -572,15 +580,19 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private Optional<String> detectEndSignal(String response) {
+        System.out.println("response----------------------------------" + response);
         return endSignalMap.keySet().stream()
                 .filter(response::contains)
                 .findFirst();
     }
 
-    private ChatResponseDto endPromptAndRespond(String context, Long chatRoomId, Long userId,ChatRoom currentChatRoom) {
+    private ChatResponseDto endPromptAndRespond(String context, Long chatRoomId, Long userId,ChatRoom currentChatRoom,ChatMemory memory,String whattodoPrompt) {
         log.info("{} 끝", context);
-        sessionManager.getPromptProcessing().put(userId, false);
+        sessionManager.getPromptProcessing().put(chatRoomId, false);
+        memory.clear();
+        memory.add(SystemMessage.from(whattodoPrompt));
         String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+
         saveChatMessage(userId, currentChatRoom, message, true, false, "mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);
     }
