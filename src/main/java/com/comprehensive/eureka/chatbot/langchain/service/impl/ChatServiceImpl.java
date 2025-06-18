@@ -5,7 +5,9 @@ import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
 import com.comprehensive.eureka.chatbot.client.PlanClient;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
-import com.comprehensive.eureka.chatbot.client.SentimentClient;
+import com.comprehensive.eureka.chatbot.client.UserClient;
+import com.comprehensive.eureka.chatbot.client.dto.request.GetByIdRequestDto;
+import com.comprehensive.eureka.chatbot.client.dto.response.GetUserProfileDetailResponseDto;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.common.exception.ChatException;
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
@@ -16,17 +18,12 @@ import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
 import com.comprehensive.eureka.chatbot.prompt.service.PromptServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.langchain4j.chain.ConversationalChain;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.TokenWindowChatMemory;
-import dev.langchain4j.model.TokenCountEstimator;
-import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,17 +56,18 @@ public class ChatServiceImpl implements ChatService {
     private final ObjectMapper objectMapper;
     private final RecommendClient recommendClient;
     private final ChatRoomRepository chatRoomRepository;
+    private final UserClient userClient;
     private final SentimentAnalysisService sentimentAnalysisService;
     private final ChatMemoryHandler chatMemoryHandler;
     private String systemPrompt;
     private final PlanClient planClient;
     private String recommendPrompt;
-    private String userInfoPrompt;
+    private String userCrudPrompt;
     private String funnyChatPrompt;
     private String whatTodoPrompt;
+    private String userPasswordPrompt;
     private String jsonExtractionPrompt;
     private String keywordExtractionPrompt;
-    private String feedBackPrompt;
     private final BadwordServiceImpl badWordService;
     private final PromptServiceImpl promptService;
 
@@ -92,9 +90,9 @@ public class ChatServiceImpl implements ChatService {
                 this.recommendPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
-            Resource systemResource2 = new ClassPathResource("prompts/infoChat-prompt.txt");
+            Resource systemResource2 = new ClassPathResource("prompts/user-password-prompt.txt");
             try (InputStream in = systemResource2.getInputStream()) {
-                this.userInfoPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                this.userPasswordPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             Resource systemResource3 = new ClassPathResource("prompts/funnyChat-prompt.txt");
@@ -112,19 +110,31 @@ public class ChatServiceImpl implements ChatService {
                 this.jsonExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
+            Resource systemResource5 = new ClassPathResource("prompts/user-crud-prompt.txt");
+            try (InputStream in = systemResource5.getInputStream()) {
+                this.userCrudPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            Resource systemResource6 = new ClassPathResource("prompts/plan-prompt.txt");
+            try (InputStream in = systemResource5.getInputStream()) {
+                this.userCrudPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
             Resource keywordResource = new ClassPathResource("prompts/keyword-prompt.txt");
             try (InputStream in = keywordResource.getInputStream()) {
                 this.keywordExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             this.promptMap = Map.of(
-                    "[prompt전환]1번으로 예상", userInfoPrompt,
+                    "[prompt전환]1번으로 예상", userPasswordPrompt,
                     "[prompt전환]2번으로 예상", funnyChatPrompt,
                     "[prompt전환]3번으로 예상", recommendPrompt
+//                    "[prompt전환]4번으로 예상", planPrompt
             );
 
             this.endSignalMap = Map.of(
                     "사용자 정보 제공 준비 끝", "사용자 정보 제공",
+                    "사용자 수정 끝","사용자",
                     "[END_OF_FUNNYCHAT_SCENARIO]", "심심풀이",
                     "요금제 추천 끝","피드백"
             );
@@ -170,7 +180,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 사용자 메시지 저장
         saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
-        // 키워드 필터링 작업
+        // 금칙어 필터링 작업
         if (badWordCheck(userId, message)) {
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
@@ -179,12 +189,11 @@ public class ChatServiceImpl implements ChatService {
         String response = chain.execute(message);
 
         Set<String> removeTarget = new HashSet<>(Arrays.asList(
-                "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝"
+                "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode"
         ));
 
         // 특정 키워드가 포함되어 있는지 검사
         boolean shouldSave = removeTarget.stream().noneMatch(response::contains);
-
         if (shouldSave) {
             saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
         }
@@ -211,6 +220,38 @@ public class ChatServiceImpl implements ChatService {
             String context = endSignalMap.get(endSignalKey.get());
             return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whatTodoPrompt);
         }
+
+        if(response.contains("사용자 비밀번호 준비 완료")){
+            log.info("사용자 비밀번호 준비 완료");
+
+            String password = response.replace("사용자 비밀번호 준비 완료 : ","");
+            //비밀번호 검증
+            //status code가 무조건 200으로 떨어져야 검증 완료
+            //검증 되면, 사용자 정보 제공
+            //사용자 정보 수정
+            memory.clear();
+//            memory.add(SystemMessage.from(userCrudPrompt));
+            memory.add(SystemMessage.from(whatTodoPrompt));
+
+            GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
+            GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
+
+            return ChatResponseDto.builder()
+                    .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
+                    .userId(userId)
+                    .chatRoomId(chatRoomId)
+                    .message(getUserProfileDetailResponseDto.toString() + "<br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요 ")
+                    .isBot(true)
+                    .isRecommended(false)
+                    .recommendationReason("mock reason")
+                    .build();
+
+        }
+
+//        if(response.contains("사용자수정")){
+//            System.out.println(response);
+//        }
+
 
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
@@ -371,6 +412,30 @@ public class ChatServiceImpl implements ChatService {
            return chatResponseDto;
         }
 
+//        if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
+//
+//            Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
+////            log.info()
+//            Long sentimentCode = 1L;
+//            if(sentiment.equals("분노") || sentiment.equals("혐오")) sentimentCode=2L;
+//            FeedBackDto feedBackDto = FeedBackDto.builder()
+//                            .sentimentCode(sentimentCode)
+//                            .detailCode(feedBackCode)
+//                            .build();
+//
+//            RecommendationResponseDto recommendationResponseDto2= null;
+//            if(recommendPlans == null){ // 정보수집 기반 추천 피드백
+//                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
+//            }else{//키워드 기반 추천 피드백
+//                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
+//            }
+//
+//            sessionManager.getPromptProcessing().put(chatRoomId, false);
+//            boolean isFeedback = true;
+//            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback);
+//
+//            return chatResponseDto;
+//        }
         if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
             System.out.println(response);
             log.info("feedback 진입");
@@ -378,9 +443,9 @@ public class ChatServiceImpl implements ChatService {
             Long sentimentCode = 1L;
             if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
             FeedBackDto feedBackDto = FeedBackDto.builder()
-                            .sentimentCode(sentimentCode)
-                            .detailCode(feedBackCode)
-                            .build();
+                    .sentimentCode(sentimentCode)
+                    .detailCode(feedBackCode)
+                    .build();
 
             RecommendationResponseDto recommendationResponseDto2= null;
             if(recommendPlans == null){ // 정보수집 기반 추천 피드백
@@ -408,6 +473,7 @@ public class ChatServiceImpl implements ChatService {
             saveForbiddenWordRecord(userId, message);
             return true;
         }
+
         return false;
     }
 
@@ -434,7 +500,9 @@ public class ChatServiceImpl implements ChatService {
 
     private void saveForbiddenWordRecord(Long userId, String message) {
         Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
+        log.info("chatMessageInfo(findTopByOrderByIdDesc) : "+ chatMessageId);
         badWordService.sendBadwordRecord(userId, chatMessageId, message);
+        log.info("admin모듈에 전송 완료");
     }
 
     private RecommendationResponseDto sendToRecommendationModule(UserPreferenceDto preference, Long userId) {
@@ -495,7 +563,7 @@ public class ChatServiceImpl implements ChatService {
         ChatMessage chatMsg = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_MESSAGE_RETRIEVE_FAILED));
 
-
+        log.info("admin에서 호출한, message를 조회 messageId"+ chatMsg.getId() );
         return new ChatMessageDetailResponseDto(
                 chatMsg.getId(),
                 chatMsg.getMessage(),
@@ -590,6 +658,8 @@ public class ChatServiceImpl implements ChatService {
         );
     }
 
+
+
     private Optional<String> detectPromptSwitch(String response) {
         return promptMap.keySet().stream()
                 .filter(response::contains)
@@ -597,7 +667,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private Optional<String> detectEndSignal(String response) {
-        System.out.println("response----------------------------------" + response);
         return endSignalMap.keySet().stream()
                 .filter(response::contains)
                 .findFirst();
