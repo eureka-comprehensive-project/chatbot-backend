@@ -20,7 +20,17 @@ public class GlobalExceptionHandler {
                 .badRequest()
                 .body(BaseResponseDto.fail(ec));
     }
-
+    /**
+    * ChatBotException 처리
+    * ErrorCode에 담긴 코드/메시지를 BaseResponseDto.fail() 로 감싸서 반환
+     */
+    @ExceptionHandler(ChatBotException.class)
+    public ResponseEntity<BaseResponseDto<ErrorResponseDto>> handleChatBotException(ChatBotException ex){
+        ErrorCode ec = ex.getErrorCode();
+        return ResponseEntity
+                .badRequest()
+                .body(BaseResponseDto.fail(ec));
+    }
     /**
      * 그 외 예기치 못한 예외 처리
      */

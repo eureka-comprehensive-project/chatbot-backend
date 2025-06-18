@@ -15,7 +15,7 @@ import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
-import com.comprehensive.eureka.chatbot.prompt.service.PromptServiceImpl;
+import com.comprehensive.eureka.chatbot.sentiment.service.PromptServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,38 +54,41 @@ public class ChatServiceImpl implements ChatService {
     private final OpenAiChatModel baseOpenAiModel;
     private final ChatMessageRepository chatMessageRepository;
     private final ObjectMapper objectMapper;
-    private final RecommendClient recommendClient;
     private final ChatRoomRepository chatRoomRepository;
-    private final UserClient userClient;
     private final SentimentAnalysisService sentimentAnalysisService;
     private final ChatMemoryHandler chatMemoryHandler;
-    private String systemPrompt;
+
+    private final RecommendClient recommendClient;
+    private final UserClient userClient;
     private final PlanClient planClient;
+
     private String recommendPrompt;
-    private String userCrudPrompt;
     private String funnyChatPrompt;
-    private String whatTodoPrompt;
+    private String whattodoPrompt;
     private String userPasswordPrompt;
     private String jsonExtractionPrompt;
     private String keywordExtractionPrompt;
+    private String planPrompt;
+
     private final BadwordServiceImpl badWordService;
     private final PromptServiceImpl promptService;
 
     private final SessionManager sessionManager;
-//    private final Map<Long, Boolean> promptProcessing = new ConcurrentHashMap<>();
-    private final Map<Long, Boolean> firstChatActivated = new ConcurrentHashMap<>();
 
-    // 프롬프트 전환을위한 맵으로 구성 : 차후 확장된 프롬프트 하기 맵에 추가 필요
+    private final Map<Long, Boolean> firstChatActivated = new ConcurrentHashMap<>();
+    private final Map<Long, ConversationalChain> chainMap = new ConcurrentHashMap<>();
+
     Map<String, String> promptMap;
     RecommendationResponseDto recommendationResponseDto;
     List<RecommendPlanDto> recommendPlans;
     Map<String, String> endSignalMap;
-
+    Set<String> removeTarget;
+    ConversationalChain chain;
     @PostConstruct
     public void loadPrompts() {
         try {
 
-            Resource systemResource = new ClassPathResource("prompts/system-prompt.txt");
+            Resource systemResource = new ClassPathResource("prompts/recommend-prompt.txt");
             try (InputStream in = systemResource.getInputStream()) {
                 this.recommendPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
@@ -95,24 +98,24 @@ public class ChatServiceImpl implements ChatService {
                 this.userPasswordPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
-            Resource systemResource3 = new ClassPathResource("prompts/funnyChat-prompt.txt");
+            Resource systemResource3 = new ClassPathResource("prompts/funnychat-prompt.txt");
             try (InputStream in = systemResource3.getInputStream()) {
                 this.funnyChatPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
-            Resource systemResource4 = new ClassPathResource("prompts/determine-whattodo-prompt.txt");
+            Resource systemResource4 = new ClassPathResource("prompts/whattodo-prompt.txt");
             try (InputStream in = systemResource4.getInputStream()) {
-                this.whatTodoPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                this.whattodoPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            Resource systemResource5 = new ClassPathResource("prompts/plan-prompt.txt");
+            try (InputStream in = systemResource5.getInputStream()) {
+                this.planPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             Resource jsonResource = new ClassPathResource("prompts/json-extraction-prompt.txt");
             try (InputStream in = jsonResource.getInputStream()) {
                 this.jsonExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            }
-
-            Resource systemResource5 = new ClassPathResource("prompts/user-crud-prompt.txt");
-            try (InputStream in = systemResource5.getInputStream()) {
-                this.userCrudPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
             Resource keywordResource = new ClassPathResource("prompts/keyword-prompt.txt");
@@ -124,15 +127,24 @@ public class ChatServiceImpl implements ChatService {
                     "[prompt전환]1번으로 예상", userPasswordPrompt,
                     "[prompt전환]2번으로 예상", funnyChatPrompt,
                     "[prompt전환]3번으로 예상", recommendPrompt,
-                    "[prompt전환]5번으로 예상", whatTodoPrompt
+                    "[prompt전환]4번으로 예상", planPrompt
             );
 
             this.endSignalMap = Map.of(
                     "사용자 정보 제공 준비 끝", "사용자 정보 제공",
                     "사용자 수정 끝","사용자",
                     "[END_OF_FUNNYCHAT_SCENARIO]", "심심풀이",
+                    "요금제 조회 끝","요금제 조회",
                     "요금제 추천 끝","피드백"
             );
+
+            this.removeTarget = new HashSet<>(Arrays.asList(
+                    "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode","요금제 조회 끝","요금제 추천 끝"
+            ));
+
+            this.chain = ConversationalChain.builder()
+                    .chatModel(baseOpenAiModel)
+                    .build();
         } catch (IOException e) {
             throw new UncheckedIOException("프롬프트 로드 중 오류 발생", e);
         }
@@ -141,6 +153,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public ChatResponseDto generateReply(Long userId, Long chatRoomId, String message) throws JsonProcessingException {
+
         // 전역적으로 사용할 리턴 변수 생성
         ChatResponseDto chatResponseDto = ChatResponseDto.of("", chatRoomId, userId);
         // 요청값 출력
@@ -149,51 +162,53 @@ public class ChatServiceImpl implements ChatService {
         ChatRoom currentChatRoom = chatRoomRepository.findById(chatRoomId).orElseThrow(
                 () -> new IllegalArgumentException("채팅방을 찾을 수 없습니다. ID: " + chatRoomId)
         );
+        // 사용자 메시지 저장
+        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
+        // 금칙어 필터링 작업
+        if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
+            log.info("금칙어가 발견 되었습니다.");
+            return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
+        }
+
+
         // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
         String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
-
-        // 채팅방 마다 다른 memory 할당
+        // 채팅방 마다 다른 memory 가져오기
         ChatMemory memory = chatMemoryHandler.getMemoryOfChatRoom(chatRoomId);
 
         sessionManager.getPromptProcessing().putIfAbsent(chatRoomId, false);
         firstChatActivated.putIfAbsent(chatRoomId, true);
 
-        // 만약 한 prompt 로직이 종료 됐다면, prompt 갈아 끼는 모드로 변경
+        //기본 : what to do prompt
         if (!sessionManager.getPromptProcessing().get(chatRoomId) || firstChatActivated.get(chatRoomId)) {
-            log.info("prompt 전환 시작");
             firstChatActivated.put(chatRoomId, false);
-            memory.add(SystemMessage.from(whatTodoPrompt));
-            log.info("prompt 전환 끝");
+            memory.clear();
+            memory.add(SystemMessage.from(whattodoPrompt));
+            log.info("대화의 첫 부분이거나, 새로운 task의 시작이므로 whattodo prompt를 실행했습니다");
         }
 
-        // 설정한 prompt 저장된 memory 대로 lang chain 생성
-        ConversationalChain chain = ConversationalChain.builder()
-                .chatModel(baseOpenAiModel)
-                .chatMemory(memory)
-                .build();
+        // 설정한 prompt 저장된 memory 대로 채팅방 별로 lang chain 생성 하거나 반환
+        ConversationalChain chain = chainMap.computeIfAbsent(chatRoomId, id ->
+                ConversationalChain.builder()
+                        .chatModel(baseOpenAiModel)
+                        .chatMemory(memory)
+                        .build()
+        );
+        log.info("langchain 생성 완료");
 
-        // 사용자 메시지 저장
-        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
-        // 금칙어 필터링 작업
-        if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
-            return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
-        }
 
-        // GPT 응답
+        // GPT 응답 -> 기본,처음 : whattodoprompt , task 중 : 해당prompt
         String response = chain.execute(message);
+        log.info("gpt의 응답 response" + response);
 
-        Set<String> removeTarget = new HashSet<>(Arrays.asList(
-                "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode"
-        ));
-
-        // 특정 키워드가 포함되어 있는지 검사
+        // gpt가 사용자의 응답을 듣고, task가 끝이라고 판단 했을 때 내는 trigger 문장들은  저장 x -> 뒤에서 whattodo prompt의 결과로 변경 후 저장
         boolean shouldSave = removeTarget.stream().noneMatch(response::contains);
         if (shouldSave) {
             saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
         }
 
-        // Prompt 전환 탐지 및 적용
+        // whattodo prompt의 결과 처리(prompt directing)
         Optional<String> switchKey = detectPromptSwitch(response);
         if (switchKey.isPresent()) {
             String prompt = promptMap.get(switchKey.get()) + attitude;
@@ -203,19 +218,20 @@ public class ChatServiceImpl implements ChatService {
             sessionManager.getPromptProcessing().put(chatRoomId, true);
             response = chain.execute(message);
             saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
-        } else if (response.contains("[prompt전환]4번으로 예상")) {
+        } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
             saveChatMessage(userId, currentChatRoom, "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", true, false, "mock reason");
-            return ChatResponseDto.fail("못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", chatResponseDto);
+            return ChatResponseDto.fail("못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요", chatResponseDto);
         }
 
         // Prompt 종료 탐지
         Optional<String> endSignalKey = detectEndSignal(response);
         if (endSignalKey.isPresent()) {
             String context = endSignalMap.get(endSignalKey.get());
-            return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whatTodoPrompt);
+            return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whattodoPrompt);
         }
 
+        //다음 if 문들은 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우들 입니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
         if(response.contains("사용자 비밀번호 준비 완료")){
             log.info("사용자 비밀번호 준비 완료");
 
@@ -224,10 +240,9 @@ public class ChatServiceImpl implements ChatService {
             //status code가 무조건 200으로 떨어져야 검증 완료
             //검증 되면, 사용자 정보 제공
             //사용자 정보 수정
-            memory.clear();
-//            memory.add(SystemMessage.from(userCrudPrompt));
-            memory.add(SystemMessage.from(whatTodoPrompt));
-
+//            memory.clear();
+//            memory.add(SystemMessage.from(whattodoPrompt));
+            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
             GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
             GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
 
@@ -235,7 +250,7 @@ public class ChatServiceImpl implements ChatService {
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
                     .chatRoomId(chatRoomId)
-                    .message(getUserProfileDetailResponseDto.toString() + "<br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요 ")
+                    .message(getUserProfileDetailResponseDto.toString() + "<br> <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
                     .isBot(true)
                     .isRecommended(false)
                     .recommendationReason("mock reason")
@@ -243,14 +258,21 @@ public class ChatServiceImpl implements ChatService {
 
         }
 
-//        if(response.contains("사용자수정")){
-//            System.out.println(response);
-//        }
-
-
+        if(response.contains("요금제 조회 준비 완료")){
+            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
+            return ChatResponseDto.builder()
+                    .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
+                    .userId(userId)
+                    .chatRoomId(chatRoomId)
+                    .message("요금제 정보입니다."+ "<br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
+                    .isBot(true)
+                    .isRecommended(false)
+                    .recommendationReason("mock reason")
+                    .build();
+        }
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
-            memory.clear();
+
             String extractedKeyword = null;
             final int MAX_RETRIES = 2;
             int attempt = 0;
@@ -305,11 +327,9 @@ public class ChatServiceImpl implements ChatService {
                             })
                             .collect(Collectors.joining("\n"));
 
-            finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요!";
+            finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 끝내셔도 됩니다.";
 
             saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
-            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
@@ -391,8 +411,8 @@ public class ChatServiceImpl implements ChatService {
             log.info("final root : {}", root);
 
             if (!valid) {
-                sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
-                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. 또 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+                sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 whattodo로 진입
+                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
                 saveChatMessage(userId, currentChatRoom, failMessage, true, false, "mock reason");
                 return ChatResponseDto.of(failMessage, chatRoomId, userId);
             }
@@ -403,13 +423,12 @@ public class ChatServiceImpl implements ChatService {
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
             recommendPlans= recommendationResponseDto.getRecommendPlans();
             chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId,false);
-            sessionManager.getPromptProcessing().put(chatRoomId, false);
+
            return chatResponseDto;
         }
 
         if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
-            System.out.println(response);
-            log.info("feedback 진입");
+            log.info("feedback 진입" + message);
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
             Long sentimentCode = 1L;
             if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
@@ -424,8 +443,6 @@ public class ChatServiceImpl implements ChatService {
             }else{//키워드 기반 추천 피드백
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
             }
-
-            sessionManager.getPromptProcessing().put(chatRoomId, false);
             boolean isFeedback = true;
             chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback);
 
@@ -558,7 +575,7 @@ public class ChatServiceImpl implements ChatService {
         log.info("recommendationResponse : {}", recommendationResponse);
         List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
         if (recommendPlans == null || recommendPlans.isEmpty()) {
-            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 promt 변경하게끔.
+            sessionManager.getPromptProcessing().put(chatRoomId, false); //다시 whattodo로 들어가게끔.
             String failMessage = "분석된 통신 성향에 맞는 요금제를 찾지 못했습니다. 다시 시도해 주세요.";
             saveChatMessage(userId, currentChatRoom, failMessage, true, false, "mock reason");
             return ChatResponseDto.of(failMessage, chatRoomId, userId);
@@ -607,9 +624,6 @@ public class ChatServiceImpl implements ChatService {
 
 
         ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, finalReply, true, true, "mock reason");
-        sessionManager.getPromptProcessing().put(chatRoomId, false);
-
-
         return ChatResponseDto.builder()
                 .messageId(chatMessageDto.getMessageId())
                 .userId(userId)
@@ -655,11 +669,12 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private ChatResponseDto endPromptAndRespond(String context, Long chatRoomId, Long userId,ChatRoom currentChatRoom,ChatMemory memory,String whattodoPrompt) {
-        log.info("{} 끝", context);
+        log.info("task가 끝이 났습니다.", context);
         sessionManager.getPromptProcessing().put(chatRoomId, false);
+        log.info("sessionManager를 호출하여 task process 상태를 false로 만들었습니다.");
         memory.clear();
         memory.add(SystemMessage.from(whattodoPrompt));
-        String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
+        String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
 
         saveChatMessage(userId, currentChatRoom, message, true, false, "mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);

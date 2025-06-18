@@ -1,17 +1,16 @@
-package com.comprehensive.eureka.chatbot.prompt.service;
+package com.comprehensive.eureka.chatbot.sentiment.service;
 
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
 import com.comprehensive.eureka.chatbot.common.exception.PromptException;
-import com.comprehensive.eureka.chatbot.prompt.dto.PromptDto;
-import com.comprehensive.eureka.chatbot.prompt.entity.Prompt;
-import com.comprehensive.eureka.chatbot.prompt.repository.PromptRepository;
+import com.comprehensive.eureka.chatbot.sentiment.dto.PromptDto;
+import com.comprehensive.eureka.chatbot.sentiment.entity.Prompt;
+import com.comprehensive.eureka.chatbot.sentiment.repository.PromptRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

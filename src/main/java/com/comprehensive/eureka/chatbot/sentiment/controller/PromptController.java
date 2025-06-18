@@ -1,13 +1,12 @@
-package com.comprehensive.eureka.chatbot.prompt.controller;
+package com.comprehensive.eureka.chatbot.sentiment.controller;
 
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
-import com.comprehensive.eureka.chatbot.prompt.dto.PromptDto;
-import com.comprehensive.eureka.chatbot.prompt.service.PromptService;
+import com.comprehensive.eureka.chatbot.sentiment.dto.PromptDto;
+import com.comprehensive.eureka.chatbot.sentiment.service.PromptService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
