@@ -115,11 +115,6 @@ public class ChatServiceImpl implements ChatService {
                 this.userCrudPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
-            Resource systemResource6 = new ClassPathResource("prompts/plan-prompt.txt");
-            try (InputStream in = systemResource5.getInputStream()) {
-                this.userCrudPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            }
-
             Resource keywordResource = new ClassPathResource("prompts/keyword-prompt.txt");
             try (InputStream in = keywordResource.getInputStream()) {
                 this.keywordExtractionPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -128,8 +123,8 @@ public class ChatServiceImpl implements ChatService {
             this.promptMap = Map.of(
                     "[prompt전환]1번으로 예상", userPasswordPrompt,
                     "[prompt전환]2번으로 예상", funnyChatPrompt,
-                    "[prompt전환]3번으로 예상", recommendPrompt
-//                    "[prompt전환]4번으로 예상", planPrompt
+                    "[prompt전환]3번으로 예상", recommendPrompt,
+                    "[prompt전환]5번으로 예상", whatTodoPrompt
             );
 
             this.endSignalMap = Map.of(
@@ -179,9 +174,9 @@ public class ChatServiceImpl implements ChatService {
                 .build();
 
         // 사용자 메시지 저장
-        saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
+        Long messageId = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
         // 금칙어 필터링 작업
-        if (badWordCheck(userId, message)) {
+        if (badWordCheck(userId, message, messageId)) {
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
 
@@ -412,30 +407,6 @@ public class ChatServiceImpl implements ChatService {
            return chatResponseDto;
         }
 
-//        if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
-//
-//            Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
-////            log.info()
-//            Long sentimentCode = 1L;
-//            if(sentiment.equals("분노") || sentiment.equals("혐오")) sentimentCode=2L;
-//            FeedBackDto feedBackDto = FeedBackDto.builder()
-//                            .sentimentCode(sentimentCode)
-//                            .detailCode(feedBackCode)
-//                            .build();
-//
-//            RecommendationResponseDto recommendationResponseDto2= null;
-//            if(recommendPlans == null){ // 정보수집 기반 추천 피드백
-//                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
-//            }else{//키워드 기반 추천 피드백
-//                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
-//            }
-//
-//            sessionManager.getPromptProcessing().put(chatRoomId, false);
-//            boolean isFeedback = true;
-//            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback);
-//
-//            return chatResponseDto;
-//        }
         if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
             System.out.println(response);
             log.info("feedback 진입");
@@ -466,14 +437,17 @@ public class ChatServiceImpl implements ChatService {
 
     }
 
-    private boolean badWordCheck(Long userId, String message) {
+    private boolean badWordCheck(Long userId, String message, Long messageId) {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
+        log.info("message" + message, "messageId" + messageId );
         boolean check = badWordService.checkBadWord(message);
+        log.info("check" + check);
         if (check) {
-            saveForbiddenWordRecord(userId, message);
+            saveForbiddenWordRecord(userId, message,messageId);
+            log.info("saveForbiddenWordRecord 기록 완료");
             return true;
         }
-
+        log.info("saveForbiddenWordRecord 기록 완료");
         return false;
     }
 
@@ -498,8 +472,8 @@ public class ChatServiceImpl implements ChatService {
         return chat.getId();
     }
 
-    private void saveForbiddenWordRecord(Long userId, String message) {
-        Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
+    private void saveForbiddenWordRecord(Long userId, String message, Long chatMessageId) {
+//        Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
         log.info("chatMessageInfo(findTopByOrderByIdDesc) : "+ chatMessageId);
         badWordService.sendBadwordRecord(userId, chatMessageId, message);
         log.info("admin모듈에 전송 완료");
@@ -560,10 +534,11 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional(readOnly = true)
     public ChatMessageDetailResponseDto getChatMessageDetail(Long messageId) {
+        log.info("욕설이 포함된 messageId 찾기: " +messageId);
         ChatMessage chatMsg = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ChatException(ErrorCode.CHAT_MESSAGE_RETRIEVE_FAILED));
-
         log.info("admin에서 호출한, message를 조회 messageId"+ chatMsg.getId() );
+
         return new ChatMessageDetailResponseDto(
                 chatMsg.getId(),
                 chatMsg.getMessage(),
