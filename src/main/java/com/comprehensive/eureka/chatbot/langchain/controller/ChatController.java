@@ -1,11 +1,8 @@
 package com.comprehensive.eureka.chatbot.langchain.controller;
 
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.ChatHistoryRequestDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.ChatHistoryResponseDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.ChatResponseDto;
+import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
-import com.comprehensive.eureka.chatbot.langchain.dto.ChatRequestDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,4 +35,12 @@ public class ChatController {
         return ResponseEntity.ok(BaseResponseDto.success(chatHistory));
     }
 
+    //채팅 메시지 조회
+    @PostMapping("/message")
+    public ResponseEntity<BaseResponseDto<ChatMessageDetailResponseDto>> getMessageDetail(
+            @RequestBody ChatMessageRequestDto request
+    ) {
+        ChatMessageDetailResponseDto detail = chatService.getChatMessageDetail(request.getId());
+        return ResponseEntity.ok(BaseResponseDto.success(detail));
+    }
 }

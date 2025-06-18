@@ -28,7 +28,10 @@ public enum ErrorCode {
     // 금칙어 로그 관리 에러 (20020~20029)
     FORBIDDEN_WORD_LOG_NOT_FOUND       (20030, "FORBIDDEN_WORD_LOG_NOT_FOUND",       "해당 금칙어 로그를 찾을 수 없습니다."),
     FORBIDDEN_WORD_LOG_RETRIEVE_FAILED (20031, "FORBIDDEN_WORD_LOG_RETRIEVE_FAILED", "금칙어 로그 조회에 실패했습니다."),
-    FORBIDDEN_WORD_LOG_DELETE_FAILED   (20032, "FORBIDDEN_WORD_LOG_DELETE_FAILED",   "금칙어 로그 삭제에 실패했습니다.");
+    FORBIDDEN_WORD_LOG_DELETE_FAILED   (20032, "FORBIDDEN_WORD_LOG_DELETE_FAILED",   "금칙어 로그 삭제에 실패했습니다."),
+
+    // 채팅 메시지 조회 에러
+    CHAT_MESSAGE_RETRIEVE_FAILED      (20033, "CHAT_MESSAGE_RETRIEVE_FAILED",      "채팅 메시지를 조회할 수 없습니다.");
 
     private final int code;
     private final String name;

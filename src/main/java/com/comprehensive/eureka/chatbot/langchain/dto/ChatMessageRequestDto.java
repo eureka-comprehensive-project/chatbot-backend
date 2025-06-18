@@ -1,0 +1,12 @@
+package com.comprehensive.eureka.chatbot.langchain.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ChatMessageRequestDto {
+    private Long id;
+}
