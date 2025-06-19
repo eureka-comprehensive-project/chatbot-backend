@@ -138,14 +138,14 @@ public class ChatServiceImpl implements ChatService {
 
             this.endSignalMap = Map.of(
                     "사용자 정보 제공 준비 끝", "사용자 정보 제공",
-                    "사용자 수정 끝","사용자",
                     "[END_OF_FUNNYCHAT_SCENARIO]", "심심풀이",
-                    "요금제 조회 끝","요금제 조회",
-                    "요금제 추천 끝","피드백"
+                    "[요금제 조회 끝]","요금제 조회",
+                    "[요금제 추천 끝]","피드백",
+                    "[사용자 검증 끝]","피드백"
             );
 
             this.removeTarget = new HashSet<>(Arrays.asList(
-                    "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode","요금제 조회 끝","요금제 추천 끝"
+                   "[사용자 비밀번호 준비 완료]", "요금제 조회-","요금제 조회 준비","[요금제 조회 준비 완료]","[요금제 추천 끝]","[요금제 조회 끝]","[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode","요금제 조회 끝","요금제 추천 끝"
             ));
             this.extractedKeyword = null;
             this.chain = ConversationalChain.builder()
@@ -207,7 +207,7 @@ public class ChatServiceImpl implements ChatService {
 
         // GPT 응답 -> 기본,처음 : whattodoprompt , task 중 : 해당prompt
         String response = chain.execute(message);
-        log.info("gpt의 응답 response" + response);
+        log.info("gpt의 응답 response " + response);
 
         // gpt가 사용자의 응답을 듣고, task가 끝이라고 판단 했을 때 내는 trigger 문장들은  저장 x -> 뒤에서 whattodo prompt의 결과로 변경 후 저장
         boolean shouldSave = removeTarget.stream().noneMatch(response::contains);
@@ -225,7 +225,9 @@ public class ChatServiceImpl implements ChatService {
             sessionManager.getPromptProcessing().put(chatRoomId, true);
             response = chain.execute(message);
             log.info("바뀐 프롬프트의 첫 response"+response);
-            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");//todo
+            if (shouldSave) {
+                saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");//todo
+            }
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
             response = "못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
@@ -241,10 +243,10 @@ public class ChatServiceImpl implements ChatService {
         }
 
         //지금부터는 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우를 처리합니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
-        if(response.contains("사용자 비밀번호 준비 완료")){
+        if(response.contains("[사용자 비밀번호 준비 완료]")){
             log.info("사용자 비밀번호 준비 완료");
 
-            String password = response.replace("사용자 비밀번호 준비 완료 : ","");
+            String password = response.replace("[사용자 비밀번호 준비 완료] : ","");
 
             // userId로 정보 조회 -> email
             GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
@@ -286,7 +288,7 @@ public class ChatServiceImpl implements ChatService {
 
         }
 
-        if(response.contains("요금제 조회 준비 완료")){
+        if(response.contains("[요금제 조회 준비 완료]")){
             log.info(response);
             List<PlanDto> planDto = planClient.getAllPlans();
             log.info(planDto.toString());
@@ -307,13 +309,14 @@ public class ChatServiceImpl implements ChatService {
             log.info("요금제 조회 시작");
             String[] parts = response.split("-");
             String division = parts.length >= 3 ? parts[1] : "";
-            String value = parts.length >= 1 ? parts[parts.length - 1] : "";
+            String value = parts[2].split(" ")[0];
             log.info("가운데 단어: " + division +"마지막 단어: " + value );
             chatResponseDto = switch (division) {
                 case "요금제 혜택" -> showPlansByBenefit(value);
                 case "요금제 카테고리" -> showPlansByCategory(value);
                 default -> chatResponseDto;
             };
+            saveChatMessage(userId, currentChatRoom, chatResponseDto.getMessage(), true, false, "mock reason");
             return chatResponseDto;
 
         }
@@ -523,6 +526,7 @@ public class ChatServiceImpl implements ChatService {
         log.info("benefitId : " + benefitId);
         filterListResponseDtoList = planClient.getPlansByBenefitsId(benefitId);
         log.info("filterListResponseDtoList size : " + filterListResponseDtoList.size());
+
         return ChatResponseDto.builder()
                 .message(filterListResponseDtoList.toString())
                 .isBot(true)
