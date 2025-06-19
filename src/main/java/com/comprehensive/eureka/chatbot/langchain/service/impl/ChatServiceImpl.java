@@ -253,8 +253,6 @@ public class ChatServiceImpl implements ChatService {
             String email = getUserProfileDetailResponseDto.getEmail();
 
             // 비밀번호 검증
-            // status code가 무조건 200으로 떨어져야 검증 완료
-            // 검증 되면, 사용자 정보 제공
             LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
                     .email(email)
                     .password(password)
@@ -273,9 +271,7 @@ public class ChatServiceImpl implements ChatService {
                 return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
             }
             log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
-            //사용자 정보 수정
-//            memory.clear();
-//            memory.add(SystemMessage.from(whattodoPrompt));
+
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
 
             return ChatResponseDto.builder()
@@ -322,9 +318,6 @@ public class ChatServiceImpl implements ChatService {
 
         }
 
-        if(response.contains("요금제 조회 끝")){
-            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
-        }
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
 

@@ -89,23 +89,23 @@
 
 지금까지의 대화를 기반으로 사용자의 선호 정보를 대괄호 룰과 JSON 형식에 맞게 정리해 주세요.
 
-            - '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
+- '무제한'일 경우 반드시 숫자 99999로 작성해 주세요.
 
-  - 대괄호와 함께, 프리미엄 혜택과 미디어 혜택을 순서대로 사용자가 말한 혜택들을 넣는다.
-   프리미엄 혜택만 두 개 이상 이라면 랜덤으로 둘 중 하나만 넣는다. 미디어 혜택만 두 개 이상 이라면 마찬가지로 둘 중 하나만 넣는다.
+- 대괄호와 함께, 프리미엄 혜택과 미디어 혜택을 순서대로 사용자가 말한 혜택들을 넣는다.
+프리미엄 혜택만 두 개 이상 이라면 랜덤으로 둘 중 하나만 넣는다. 미디어 혜택만 두 개 이상 이라면 마찬가지로 둘 중 하나만 넣는다.
 
-  - [프리미엄 혜택|미디어 혜택]
-  - `preferenceDataUsage`: Integer (숫자)
-  - `preferenceDataUsageUnit`: String (예: "GB", "MB")
-  - `preferenceSharedDataUsage`: Integer (숫자)
-  - `preferenceSharedDataUsageUnit`: String (예: "GB", "MB")
-  - `preferencePrice`: Integer (숫자)
-  - `preferenceBenefitGroupId`: null,
-  - `isPreferenceFamilyData`: Boolean (`true` 또는 `false`)
-  - `preferenceValueAddedCallUsage`: Integer (숫자)
+- [프리미엄 혜택|미디어 혜택]
+- `preferenceDataUsage`: Integer (숫자)
+- `preferenceDataUsageUnit`: String (예: "GB", "MB")
+- `preferenceSharedDataUsage`: Integer (숫자)
+- `preferenceSharedDataUsageUnit`: String (예: "GB", "MB")
+- `preferencePrice`: Integer (숫자)
+- `preferenceBenefitGroupId`: null,
+- `isPreferenceFamilyData`: Boolean (`true` 또는 `false`)
+- `preferenceValueAddedCallUsage`: Integer (숫자)
 
 
-
+- isPreferenceFamilyData의 값은, 2번째 질문에서 아니 라는 대답을 하지 않은 경우, true이고, 아니라고 대답한 경우 false로 대입해주세요
 - 모든 항목은 정확한 타입에 맞춰 작성해 주세요.
 - 혜택을 입력하는 방법은 대괄호([) 프리미엄 혜택 분리(|) 미디어 혜택 대괄호(])  ex)[넷플릭스|밀리의 서재]
 아래 예시 형식 그대로 대괄호와 JSON으로만 응답하세요. 설명은 필요 없습니다.
