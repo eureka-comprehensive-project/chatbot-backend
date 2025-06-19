@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FeedBackDto {
-
+    private String keyword;
     private Long sentimentCode;
     private Long detailCode;
 }
