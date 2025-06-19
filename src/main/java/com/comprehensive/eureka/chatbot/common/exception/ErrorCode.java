@@ -8,8 +8,7 @@ import lombok.Getter;
 public enum ErrorCode {
     //INTERNAL SERVER ERROR
     INTERNAL_SERVER_ERROR(20000, "INTERNAL_SERVER_ERROR",  "서버 내부 오류가 발생했습니다."),
-    //Domain error
-    DOMAIN_NOT_CHANGED(20034,"DOMAIN_NOT_CHANGED","domain주소를 안바꾸셨습니다"),
+    
     // 프롬프트 관리 에러 (20010~20019)
     PROMPT_NOT_FOUND       (20010, "PROMPT_NOT_FOUND", "해당 프롬프트를 찾을 수 없습니다."),
     SENTIMENT_CODE_ALREADY_EXISTS  (20011, "SENTIMENT_CODE_ALREADY_EXISTS", "이미 등록된 감정코드입니다."),
@@ -34,9 +33,7 @@ public enum ErrorCode {
     // 채팅 메시지 조회 에러
     CHAT_MESSAGE_RETRIEVE_FAILED      (20033, "CHAT_MESSAGE_RETRIEVE_FAILED",      "채팅 메시지를 조회할 수 없습니다."),
     //챗봇 답변 생성 에러
-    CHATBOT_PROMPT_ERROR(20034,"CHATBOT_PROMPT_ERROR","챗봇 답변을 생성 중 에러 발생했습니다."),
-    //외부 api호출 오류
-    DATA_NOT_FOUND(20035, "DATA_NOT_FOUND","외부 API 호출에서 실패했습니다.");
+    CHATBOT_PROMPT_ERROR(20034,"CHATBOT_PROMPT_ERROR","챗봇 답변을 생성 중 에러 발생했습니다.");
     private final int code;
     private final String name;
     private final String message;
