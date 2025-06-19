@@ -3,11 +3,14 @@ package com.comprehensive.eureka.chatbot.langchain.service.impl;
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
+import com.comprehensive.eureka.chatbot.client.AuthClient;
 import com.comprehensive.eureka.chatbot.client.PlanClient;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.UserClient;
 import com.comprehensive.eureka.chatbot.client.dto.request.GetByIdRequestDto;
+import com.comprehensive.eureka.chatbot.client.dto.request.LoginUserRequestDto;
 import com.comprehensive.eureka.chatbot.client.dto.response.GetUserProfileDetailResponseDto;
+import com.comprehensive.eureka.chatbot.client.dto.response.LoginUserResponseDto;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.common.exception.ChatException;
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
@@ -61,6 +64,7 @@ public class ChatServiceImpl implements ChatService {
     private final RecommendClient recommendClient;
     private final UserClient userClient;
     private final PlanClient planClient;
+    private final AuthClient authClient;
 
     private String recommendPrompt;
     private String funnyChatPrompt;
@@ -167,15 +171,15 @@ public class ChatServiceImpl implements ChatService {
         ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
         log.info("사용자 메시지를 저장했습니다 id : " + chatMessageDto.getMessageId());
         // 금칙어 필터링 작업
-        if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
-            log.info("금칙어가 발견 되었습니다.");
-            return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
-        }
+//        if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
+//            log.info("금칙어가 발견 되었습니다.");
+//            return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
+//        }
         this.extractedKeyword = null;
 
         // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
-        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
+//        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
         // 채팅방 마다 다른 memory 가져오기
         ChatMemory memory = chatMemoryHandler.getMemoryOfChatRoom(chatRoomId);
 
@@ -213,7 +217,7 @@ public class ChatServiceImpl implements ChatService {
         // whattodo prompt의 결과 처리(prompt directing)
         Optional<String> switchKey = detectPromptSwitch(response);
         if (switchKey.isPresent()) {
-            String prompt = promptMap.get(switchKey.get()) + attitude;
+            String prompt = promptMap.get(switchKey.get());
             log.info("{} 감지됨", switchKey.get());
             memory.clear();
             memory.add(SystemMessage.from(prompt));
@@ -239,15 +243,38 @@ public class ChatServiceImpl implements ChatService {
             log.info("사용자 비밀번호 준비 완료");
 
             String password = response.replace("사용자 비밀번호 준비 완료 : ","");
-            //비밀번호 검증
-            //status code가 무조건 200으로 떨어져야 검증 완료
-            //검증 되면, 사용자 정보 제공
+
+            // userId로 정보 조회 -> email
+            GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
+
+            GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
+            String email = getUserProfileDetailResponseDto.getEmail();
+
+            // 비밀번호 검증
+            // status code가 무조건 200으로 떨어져야 검증 완료
+            // 검증 되면, 사용자 정보 제공
+            LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
+                    .email(email)
+                    .password(password)
+                    .build();
+
+            log.info("loginUserRequestDto 생성: {}", loginUserRequestDto);
+            BaseResponseDto<LoginUserResponseDto> authResponse = authClient.verifyPassword(loginUserRequestDto);
+            log.info("[비밀번호 검증 응답] statusCode: {}, message: {}", authResponse.getStatusCode(), authResponse.getMessage());
+
+            if(authResponse.getStatusCode() != 200){ // 비밀번호가 맞지 않는 경우
+                log.info("[비밀번호 검증 실패] 사용자 입력 비밀번호가 틀림");
+                ChatResponseDto context = ChatResponseDto.builder()
+                        .chatRoomId(chatRoomId)
+                        .userId(userId)
+                        .build();
+                return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
+            }
+            log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
             //사용자 정보 수정
 //            memory.clear();
 //            memory.add(SystemMessage.from(whattodoPrompt));
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
-            GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
-            GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
 
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
