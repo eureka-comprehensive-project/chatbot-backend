@@ -84,6 +84,7 @@ public class ChatServiceImpl implements ChatService {
     Map<String, String> endSignalMap;
     Set<String> removeTarget;
     ConversationalChain chain;
+    String extractedKeyword = null;
     @PostConstruct
     public void loadPrompts() {
         try {
@@ -273,14 +274,13 @@ public class ChatServiceImpl implements ChatService {
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
 
-            String extractedKeyword = null;
             final int MAX_RETRIES = 2;
             int attempt = 0;
             boolean validKeyword = false;
 
             while (attempt < MAX_RETRIES) {
-                extractedKeyword = chain.execute(keywordExtractionPrompt);
-                if (extractedKeyword != null && !extractedKeyword.isBlank()) {
+                this.extractedKeyword = chain.execute(keywordExtractionPrompt);
+                if (this.extractedKeyword != null && !extractedKeyword.isBlank()) {
                     validKeyword = true;
                     break;
                 }
@@ -292,8 +292,8 @@ public class ChatServiceImpl implements ChatService {
             }
 
 
-            log.info("extractedKeyword : {}", extractedKeyword);
-            recommendPlans = sendKeywordToRecommendationModule(extractedKeyword);
+            log.info("extractedKeyword : {}", this.extractedKeyword);
+            recommendPlans = sendKeywordToRecommendationModule(this.extractedKeyword);
             if (recommendPlans == null || recommendPlans.isEmpty()) {
                 return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.", chatRoomId, userId);
             }
@@ -432,13 +432,15 @@ public class ChatServiceImpl implements ChatService {
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
             Long sentimentCode = 1L;
             if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
+            log.info("감지된 keyword(keyword추천이 아니라면 null) : "+this.extractedKeyword);
             FeedBackDto feedBackDto = FeedBackDto.builder()
+                    .keyword(this.extractedKeyword)
                     .sentimentCode(sentimentCode)
                     .detailCode(feedBackCode)
                     .build();
-
             RecommendationResponseDto recommendationResponseDto2= null;
             if(recommendPlans == null){ // 정보수집 기반 추천 피드백
+
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
             }else{//키워드 기반 추천 피드백
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());

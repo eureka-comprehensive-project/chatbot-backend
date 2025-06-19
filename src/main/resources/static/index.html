@@ -224,10 +224,6 @@
         document.getElementById("chat-section").style.display = "flex";
         document.getElementById("userId").disabled = true;
 
-        startMessage();
-    }
-    async function startMessage() {
-        await sendToServer("시작");
     }
     async function sendMessage() {
         const messageInput = document.getElementById("messageInput");
