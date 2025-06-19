@@ -21,3 +21,4 @@ public class PlanDto {
     private boolean isFamilyDataEnabled;
     private String planCategory;
 }
+

@@ -16,10 +16,16 @@ public class ChatResponseDto {
     private Long userId;
     private Long chatRoomId;
     private String message;
-    private boolean isBot;
-    private LocalDateTime timestamp;
-    private Boolean isRecommended;
-    private String recommendationReason;
+    @Builder.Default
+    private boolean isBot = false;
+    @Builder.Default
+    private LocalDateTime timestamp = LocalDateTime.now();
+    @Builder.Default
+    private Boolean isRecommended = false;
+    @Builder.Default
+    private Boolean isPlanShow = false;
+    @Builder.Default
+    private String recommendationReason = "mockReason";
 
     public static ChatResponseDto of(String message, Long chatRoomId, Long userId) {
         return ChatResponseDto.builder()
