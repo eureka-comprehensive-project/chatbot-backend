@@ -142,7 +142,7 @@ public class ChatServiceImpl implements ChatService {
             this.removeTarget = new HashSet<>(Arrays.asList(
                     "[prompt전환]", "직업을 확인하였습니다", "키워드를 확인하였습니다", "통신성향을 모두 파악했습니다","[END_OF_FUNNYCHAT_SCENARIO]","사용자 정보 제공 준비 끝","feedbackCode","요금제 조회 끝","요금제 추천 끝"
             ));
-
+            this.extractedKeyword = null;
             this.chain = ConversationalChain.builder()
                     .chatModel(baseOpenAiModel)
                     .build();
@@ -171,7 +171,7 @@ public class ChatServiceImpl implements ChatService {
             log.info("금칙어가 발견 되었습니다.");
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
-        this.extractedKeyword = null;
+
 
         // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
@@ -262,6 +262,8 @@ public class ChatServiceImpl implements ChatService {
         }
 
         if(response.contains("요금제 조회 준비 완료")){
+            PlanDto planDto = planClient.getPlans();
+
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
@@ -346,7 +348,6 @@ public class ChatServiceImpl implements ChatService {
 
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
-
             JsonNode root = null;
             String rawJson;
             final int MAX_RETRIES = 2;
@@ -679,7 +680,7 @@ public class ChatServiceImpl implements ChatService {
         memory.clear();
         memory.add(SystemMessage.from(whattodoPrompt));
         String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
-
+        this.extractedKeyword = null;
         saveChatMessage(userId, currentChatRoom, message, true, false, "mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);
     }
