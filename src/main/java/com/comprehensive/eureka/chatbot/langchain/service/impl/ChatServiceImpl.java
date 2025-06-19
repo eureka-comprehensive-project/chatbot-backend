@@ -3,11 +3,15 @@ package com.comprehensive.eureka.chatbot.langchain.service.impl;
 import com.comprehensive.eureka.chatbot.badword.service.BadwordServiceImpl;
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import com.comprehensive.eureka.chatbot.chatroom.repository.ChatRoomRepository;
+import com.comprehensive.eureka.chatbot.client.AuthClient;
 import com.comprehensive.eureka.chatbot.client.PlanClient;
 import com.comprehensive.eureka.chatbot.client.RecommendClient;
 import com.comprehensive.eureka.chatbot.client.UserClient;
 import com.comprehensive.eureka.chatbot.client.dto.request.GetByIdRequestDto;
+import com.comprehensive.eureka.chatbot.client.dto.request.LoginUserRequestDto;
+import com.comprehensive.eureka.chatbot.client.dto.response.FilterListResponseDto;
 import com.comprehensive.eureka.chatbot.client.dto.response.GetUserProfileDetailResponseDto;
+import com.comprehensive.eureka.chatbot.client.dto.response.LoginUserResponseDto;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.common.exception.ChatException;
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
@@ -61,6 +65,7 @@ public class ChatServiceImpl implements ChatService {
     private final RecommendClient recommendClient;
     private final UserClient userClient;
     private final PlanClient planClient;
+    private final AuthClient authClient;
 
     private String recommendPrompt;
     private String funnyChatPrompt;
@@ -175,7 +180,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
-        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
+//        String attitude = promptService.getPromptBySentimentName(sentiment).getScenario();
         // 채팅방 마다 다른 memory 가져오기
         ChatMemory memory = chatMemoryHandler.getMemoryOfChatRoom(chatRoomId);
 
@@ -213,18 +218,19 @@ public class ChatServiceImpl implements ChatService {
         // whattodo prompt의 결과 처리(prompt directing)
         Optional<String> switchKey = detectPromptSwitch(response);
         if (switchKey.isPresent()) {
-            String prompt = promptMap.get(switchKey.get()) + attitude;
+            String prompt = promptMap.get(switchKey.get());
             log.info("{} 감지됨", switchKey.get());
             memory.clear();
             memory.add(SystemMessage.from(prompt));
             sessionManager.getPromptProcessing().put(chatRoomId, true);
             response = chain.execute(message);
-            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
+            log.info("바뀐 프롬프트의 첫 response"+response);
+            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");//todo
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
-            response = "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
-            saveChatMessage(userId, currentChatRoom, "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", true, false, "mock reason");
-            return ChatResponseDto.fail("못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요", chatResponseDto);
+            response = "못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+            saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
+            return ChatResponseDto.fail(response, chatResponseDto);
         }
 
         // Prompt 종료 탐지
@@ -234,26 +240,49 @@ public class ChatServiceImpl implements ChatService {
             return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whattodoPrompt);
         }
 
-        //다음 if 문들은 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우들 입니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
+        //지금부터는 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우를 처리합니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
         if(response.contains("사용자 비밀번호 준비 완료")){
             log.info("사용자 비밀번호 준비 완료");
 
             String password = response.replace("사용자 비밀번호 준비 완료 : ","");
-            //비밀번호 검증
-            //status code가 무조건 200으로 떨어져야 검증 완료
-            //검증 되면, 사용자 정보 제공
+
+            // userId로 정보 조회 -> email
+            GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
+
+            GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
+            String email = getUserProfileDetailResponseDto.getEmail();
+
+            // 비밀번호 검증
+            // status code가 무조건 200으로 떨어져야 검증 완료
+            // 검증 되면, 사용자 정보 제공
+            LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
+                    .email(email)
+                    .password(password)
+                    .build();
+
+            log.info("loginUserRequestDto 생성: {}", loginUserRequestDto);
+            BaseResponseDto<LoginUserResponseDto> authResponse = authClient.verifyPassword(loginUserRequestDto);
+            log.info("[비밀번호 검증 응답] statusCode: {}, message: {}", authResponse.getStatusCode(), authResponse.getMessage());
+
+            if(authResponse.getStatusCode() != 200){ // 비밀번호가 맞지 않는 경우
+                log.info("[비밀번호 검증 실패] 사용자 입력 비밀번호가 틀림");
+                ChatResponseDto context = ChatResponseDto.builder()
+                        .chatRoomId(chatRoomId)
+                        .userId(userId)
+                        .build();
+                return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
+            }
+            log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
             //사용자 정보 수정
 //            memory.clear();
 //            memory.add(SystemMessage.from(whattodoPrompt));
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
-            GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
-            GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
 
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
                     .chatRoomId(chatRoomId)
-                    .message(getUserProfileDetailResponseDto.toString() + "<br> <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
+                    .message(getUserProfileDetailResponseDto.toString() + "\n 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
                     .isBot(true)
                     .isRecommended(false)
                     .recommendationReason("mock reason")
@@ -262,18 +291,39 @@ public class ChatServiceImpl implements ChatService {
         }
 
         if(response.contains("요금제 조회 준비 완료")){
-            PlanDto planDto = planClient.getPlans();
+            log.info(response);
+            List<PlanDto> planDto = planClient.getAllPlans();
+            log.info(planDto.toString());
 
-            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
+            response = planDto + "\n더 알고 싶으신게 있으신가요? 카테고리별, 혜택별로 조회가 가능해요";
+            chatMessageDto = saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
             return ChatResponseDto.builder()
-                    .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
+                    .messageId(chatMessageDto.getMessageId())
                     .userId(userId)
                     .chatRoomId(chatRoomId)
-                    .message("요금제 정보입니다."+ "<br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
+                    .message(response)
                     .isBot(true)
-                    .isRecommended(false)
-                    .recommendationReason("mock reason")
+                    .isPlanShow(true)
                     .build();
+        }
+
+        if(response.contains("요금제 조회-")){
+            log.info("요금제 조회 시작");
+            String[] parts = response.split("-");
+            String division = parts.length >= 3 ? parts[1] : "";
+            String value = parts.length >= 1 ? parts[parts.length - 1] : "";
+            log.info("가운데 단어: " + division +"마지막 단어: " + value );
+            chatResponseDto = switch (division) {
+                case "요금제 혜택" -> showPlansByBenefit(value);
+                case "요금제 카테고리" -> showPlansByCategory(value);
+                default -> chatResponseDto;
+            };
+            return chatResponseDto;
+
+        }
+
+        if(response.contains("요금제 조회 끝")){
+            sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
         }
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
@@ -456,6 +506,35 @@ public class ChatServiceImpl implements ChatService {
 
 
         return ChatResponseDto.of(response, chatRoomId, userId);
+
+    }
+
+    private ChatResponseDto showPlansByCategory(String value) {
+        List<FilterListResponseDto> filterListResponseDtoList;
+        log.info("value : " + value);
+        Long categoryId = Long.parseLong(value);
+        log.info("categoryId : " + categoryId);
+        filterListResponseDtoList = planClient.getPlansByCategoryId(categoryId);
+        log.info("filterListResponseDtoList size : " + filterListResponseDtoList.size());
+        return ChatResponseDto.builder()
+                .message(filterListResponseDtoList.toString())
+                .isBot(true)
+                .isPlanShow(true)
+                .build();
+    }
+
+    private ChatResponseDto showPlansByBenefit(String value) {
+        List<FilterListResponseDto> filterListResponseDtoList;
+        log.info("value : " + value);
+        Long benefitId = Long.parseLong(value);
+        log.info("benefitId : " + benefitId);
+        filterListResponseDtoList = planClient.getPlansByBenefitsId(benefitId);
+        log.info("filterListResponseDtoList size : " + filterListResponseDtoList.size());
+        return ChatResponseDto.builder()
+                .message(filterListResponseDtoList.toString())
+                .isBot(true)
+                .isPlanShow(true)
+                .build();
 
     }
 
