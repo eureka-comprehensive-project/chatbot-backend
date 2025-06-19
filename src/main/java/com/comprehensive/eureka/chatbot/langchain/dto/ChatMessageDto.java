@@ -10,6 +10,7 @@ import lombok.Setter;
 @Builder
 @Getter @Setter
 public class ChatMessageDto {
+
     private Long messageId;
     private String message;
     private Long timestamp;
