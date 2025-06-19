@@ -48,7 +48,8 @@ public class RecommendClient {
     public BaseResponseDto<RecommendationResponseDto> recommendAfterFeedback(FeedBackDto feedBackDto, Long userId, Long PlanId) {
 
         String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/feedback/%s/%s", userId,PlanId);
-        log.info("추천 모듈로 환경설정 전송 중: {}", feedBackDto);
+        log.info("feedback dto내의 keyword" + feedBackDto.getKeyword());
+        log.info("추천 모듈로 환경설정 전송 중: {}", feedBackDto.toString());
         return webClientUtil.post2(
                 url,
                 feedBackDto,
