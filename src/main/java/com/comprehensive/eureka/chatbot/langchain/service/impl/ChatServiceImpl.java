@@ -84,7 +84,7 @@ public class ChatServiceImpl implements ChatService {
     Map<String, String> endSignalMap;
     Set<String> removeTarget;
     ConversationalChain chain;
-    String extractedKeyword = null;
+    String extractedKeyword;
     @PostConstruct
     public void loadPrompts() {
         try {
@@ -165,12 +165,13 @@ public class ChatServiceImpl implements ChatService {
         );
         // 사용자 메시지 저장
         ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, message, false, false, "mock reason");
+        log.info("사용자 메시지를 저장했습니다 id : " + chatMessageDto.getMessageId());
         // 금칙어 필터링 작업
         if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
             log.info("금칙어가 발견 되었습니다.");
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
-
+        this.extractedKeyword = null;
 
         // 감정 분석, 태도 설정
         String sentiment = sentimentAnalysisService.analysisSentiment(message);
@@ -221,6 +222,7 @@ public class ChatServiceImpl implements ChatService {
             saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
+            response = "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요";
             saveChatMessage(userId, currentChatRoom, "못 알아들었습니다. 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이 중 고르세요", true, false, "mock reason");
             return ChatResponseDto.fail("못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요", chatResponseDto);
         }
@@ -458,9 +460,9 @@ public class ChatServiceImpl implements ChatService {
 
     private boolean badWordCheck(Long userId, String message, Long sentAt) {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
-        log.info("message" + message, "sentAt" + sentAt );
+        log.info("금칙어 check 중 ... message : " + message, "sentAt : " + sentAt );
         boolean check = badWordService.checkBadWord(message);
-        log.info("check" + check);
+        log.info("금칙어 check 결과 : " + check);
         if (check) {
             saveForbiddenWordRecord(userId, message,sentAt);
             log.info("saveForbiddenWordRecord 기록 완료");
