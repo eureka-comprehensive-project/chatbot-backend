@@ -75,7 +75,7 @@ public class ChatServiceImpl implements ChatService {
     private String keywordExtractionPrompt;
     private String recommendReasonPrompt;
     private String planPrompt;
-
+    private String feedbackPrompt;
     private final BadwordServiceImpl badWordService;
     private final PromptServiceImpl promptService;
 
@@ -118,6 +118,10 @@ public class ChatServiceImpl implements ChatService {
             Resource systemResource5 = new ClassPathResource("prompts/plan-prompt.txt");
             try (InputStream in = systemResource5.getInputStream()) {
                 this.planPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            Resource systemResource6 = new ClassPathResource("prompts/feedback-prompt.txt");
+            try (InputStream in = systemResource6.getInputStream()) {
+                this.feedbackPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
 
@@ -233,7 +237,7 @@ public class ChatServiceImpl implements ChatService {
             }
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
-            response = "못 알아들었습니다. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+            response = "4가지 중 하나를 선택하세요 <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
             saveChatMessage(userId, currentChatRoom, response, true, false, false,"mock reason");
             return ChatResponseDto.fail(response, chatResponseDto);
         }
@@ -244,6 +248,7 @@ public class ChatServiceImpl implements ChatService {
             String context = endSignalMap.get(endSignalKey.get());
             return endPromptAndRespond(context, chatRoomId, userId,currentChatRoom,memory,whattodoPrompt);
         }
+
 
         //지금부터는 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우를 처리합니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
         if(response.contains("[사용자 비밀번호 준비 완료]")){
@@ -351,8 +356,13 @@ public class ChatServiceImpl implements ChatService {
             if (recommendPlans == null || recommendPlans.isEmpty()) {
                 return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.", chatRoomId, userId);
             }
-
-            String finalReply = "고객님께 다음 요금제들을 추천해 드립니다.\n\n" +
+            memory.clear();
+            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요"));
+            String reason = chain.execute(recommendPlans.get(0).toString());
+            log.info("추천 이유 : " + reason);
+            memory.clear();
+            memory.add(SystemMessage.from(feedbackPrompt));
+            String finalReply = "고객님께 다음 요금제들을 추천해 드립니다. "+reason+"\n\n" +
                     recommendPlans.stream()
                             .map(recommend -> {
                                 PlanDto plan = recommend.getPlan();
@@ -380,11 +390,10 @@ public class ChatServiceImpl implements ChatService {
                                 );
                             })
                             .collect(Collectors.joining("\n"));
-            //요금제와
+
+
             finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 끝내셔도 됩니다.";
-//            String reason = chain.execute(finalReply + recommendReasonPrompt);
-//            log.info("추천 이유 : " + reason);
-            saveChatMessage(userId, currentChatRoom, finalReply, true, true,false, "mock reason");
+            saveChatMessage(userId, currentChatRoom, finalReply, true, true,false, reason);
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
@@ -392,7 +401,7 @@ public class ChatServiceImpl implements ChatService {
                     .message(finalReply)
                     .isBot(true)
                     .isRecommended(true)
-                    .recommendationReason("mock reason")
+                    .recommendationReason(reason)
                     .build();
         }
 
@@ -475,8 +484,16 @@ public class ChatServiceImpl implements ChatService {
 
             log.info("preference : {}", preference);
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
+
+            memory.clear();
+            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천되었습니다\" 로 끝나야해요."));
+            String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
+            log.info("추천 이유 : " + reason);
+            memory.clear();
+            memory.add(SystemMessage.from(feedbackPrompt));
+
             recommendPlans= recommendationResponseDto.getRecommendPlans();
-            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId,false);
+            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId,false, reason);
 
            return chatResponseDto;
         }
@@ -494,13 +511,19 @@ public class ChatServiceImpl implements ChatService {
                     .build();
             RecommendationResponseDto recommendationResponseDto2= null;
             if(recommendPlans == null){ // 정보수집 기반 추천 피드백
-
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
             }else{//키워드 기반 추천 피드백
                 recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
             }
+
+            memory.clear();
+            memory.add(SystemMessage.from(response+"이러한 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천되었습니다\" 로 끝나야해요."));
+            String reason = chain.execute(recommendationResponseDto2.getRecommendPlans().get(0).toString());
+            log.info("추천 이유 : " + reason);
+            memory.clear();
+            memory.add(SystemMessage.from(feedbackPrompt));
             boolean isFeedback = true;
-            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback);
+            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback,reason);
 
             return chatResponseDto;
         }
@@ -589,7 +612,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private void saveForbiddenWordRecord(Long userId, String message, Long sentAt) {
-//        Long chatMessageId = chatMessageRepository.findTopByOrderByIdDesc().getId();
         log.info("chatMessageInfo(findTopByOrderByIdDesc) : "+ message);
 
         badWordService.sendBadwordRecord(userId, sentAt, message);
@@ -634,7 +656,6 @@ public class ChatServiceImpl implements ChatService {
                     request.getLastMessageId(),
                     pageable
             );
-//            log.info("chatMessages.isPlanShow" + chatMessages.get(0).getIsPlanShow());
         } else {
             log.info("최근 메시지 조회. 채팅방 ID: {}", request.getChatRoomId());
             chatMessages = chatMessageRepository.findRecentMessages(
@@ -664,7 +685,7 @@ public class ChatServiceImpl implements ChatService {
         );
     }
 
-    private ChatResponseDto generatePlanRecommendReply(RecommendationResponseDto recommendationResponse, Long userId, ChatRoom currentChatRoom,Long chatRoomId,boolean isFeedback){
+    private ChatResponseDto generatePlanRecommendReply(RecommendationResponseDto recommendationResponse, Long userId, ChatRoom currentChatRoom,Long chatRoomId,boolean isFeedback, String reason){
         String finalReply = "";
         log.info("recommendationResponse : {}", recommendationResponse);
         List<RecommendPlanDto> recommendPlans = recommendationResponse.getRecommendPlans();
@@ -705,20 +726,18 @@ public class ChatServiceImpl implements ChatService {
                 .collect(Collectors.joining("\n"));
         if(isFeedback){
             finalReply = String.format(
-                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 그만두시려면 \"끝\"이라고 해주세요",
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다."+reason+ "\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 그만두시려면 \"끝\"이라고 해주세요",
                     recommendationsText
             );
 
         }else{
             finalReply = String.format(
-                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다."+reason+"\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
                     recommendationsText
             );
         }
 
-//        String reason = chain.execute(finalReply + recommendReasonPrompt);
-//        log.info("추천 이유 : " + reason);
-        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, finalReply, true, true, false,"mock reason");
+        ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, finalReply, true, true, false,reason);
         return ChatResponseDto.builder()
                 .messageId(chatMessageDto.getMessageId())
                 .userId(userId)
@@ -727,7 +746,7 @@ public class ChatServiceImpl implements ChatService {
                 .isBot(true)
                 .timestamp(LocalDateTime.now())
                 .isRecommended(true)
-                .recommendationReason("mock reason")
+                .recommendationReason(reason)
                 .build();
     }
     private ChatHistoryResponseDto convertToDto(ChatMessage chatMessage) {
