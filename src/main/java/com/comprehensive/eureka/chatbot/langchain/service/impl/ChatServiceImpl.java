@@ -290,19 +290,15 @@ public class ChatServiceImpl implements ChatService {
 
         if(response.contains("[요금제 조회 준비 완료]")){
             log.info(response);
-            List<PlanDto> planDto = planClient.getAllPlans();
-            log.info(planDto.toString());
+//            List<PlanDto> planDto = planClient.getPlansByCategoryId(value);
+//            log.info(planDto.toString());
 
-            response = planDto + "\n더 알고 싶으신게 있으신가요? 카테고리별, 혜택별로 조회가 가능해요";
+//            response = planDto + "\n더 알고 싶으신게 있으신가요? 카테고리별, 혜택별로 조회가 가능해요";
+            chatResponseDto =  showPlansByBenefit("");
             chatMessageDto = saveChatMessage(userId, currentChatRoom, response, true, false, "mock reason");
-            return ChatResponseDto.builder()
-                    .messageId(chatMessageDto.getMessageId())
-                    .userId(userId)
-                    .chatRoomId(chatRoomId)
-                    .message(response)
-                    .isBot(true)
-                    .isPlanShow(true)
-                    .build();
+
+
+            return chatResponseDto;
         }
 
         if(response.contains("요금제 조회-")){
@@ -522,9 +518,15 @@ public class ChatServiceImpl implements ChatService {
     private ChatResponseDto showPlansByBenefit(String value) {
         List<FilterListResponseDto> filterListResponseDtoList;
         log.info("value : " + value);
-        Long benefitId = Long.parseLong(value);
-        log.info("benefitId : " + benefitId);
-        filterListResponseDtoList = planClient.getPlansByBenefitsId(benefitId);
+        if(value.isEmpty()){
+            filterListResponseDtoList = planClient.getAllPlans();
+        }else{
+            Long benefitId = Long.parseLong(value);
+            log.info("benefitId : " + benefitId);
+            filterListResponseDtoList = planClient.getPlansByBenefitsId(benefitId);
+        }
+
+
         log.info("filterListResponseDtoList size : " + filterListResponseDtoList.size());
 
         return ChatResponseDto.builder()

@@ -34,21 +34,34 @@ public class PlanClient {
         return response.getData();
     }
 
-    public List<PlanDto> getAllPlans() {
-        BaseResponseDto<List<PlanDto>> response;
-        String apiUrl = DomainConstant.PLAN_DOMAIN+"/plan/";
+    public List<FilterListResponseDto> getAllPlans() {
+
+        PlanFilterRequestDto planFilterRequestDto = PlanFilterRequestDto.builder()
+                .build();
+
+        log.info("plan 모듈로 보내는 dto 값: " + planFilterRequestDto.toString());
+
+        String apiUrl = DomainConstant.PLAN_DOMAIN + "/plan/filter/list";
         log.info("apiUrl : " + apiUrl);
-        try{
-            response = webClientUtil.get(
+
+        try {
+            BaseResponseDto<List<FilterListResponseDto>> baseResponse = webClientUtil.post(
                     apiUrl,
-                    new ParameterizedTypeReference<>() {}
+                    planFilterRequestDto,
+                    new ParameterizedTypeReference<BaseResponseDto<List<FilterListResponseDto>>>() {}
             );
-            log.info("response" + response);
-        }catch(Exception e){
+
+            if (baseResponse == null || baseResponse.getData() == null) {
+                throw new DomainException(ErrorCode.DATA_NOT_FOUND); // 필요 시 정의
+            }
+
+            log.info("response: " + baseResponse.getData());
+            return baseResponse.getData();
+
+        } catch (Exception e) {
+            log.error("요금제 필터 요청 실패", e);
             throw new DomainException(ErrorCode.DOMAIN_NOT_CHANGED);
         }
-
-        return response.getData();
     }
     public List<FilterListResponseDto> getPlansByCategoryId(Long categoryId) {
         log.info("category Id : " + categoryId);
