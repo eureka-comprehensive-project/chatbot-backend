@@ -180,6 +180,7 @@ public class ChatServiceImpl implements ChatService {
         // 금칙어 필터링 작업
         if (badWordCheck(userId, chatMessageDto.getMessage(),chatMessageDto.getTimestamp())) {
             log.info("금칙어가 발견 되었습니다.");
+            saveChatMessage(userId, currentChatRoom, "사용하신 메시지에 금지된 단어가 포함되어 있습니다.", true, false,false, "mock reason");
             return ChatResponseDto.fail("사용하신 메시지에 금지된 단어가 포함되어 있습니다.", chatResponseDto);
         }
 
@@ -237,7 +238,7 @@ public class ChatServiceImpl implements ChatService {
             }
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
-            response = "4가지 중 하나를 선택하세요 <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+            response = "4가지 중 하나를 선택하세요 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
             saveChatMessage(userId, currentChatRoom, response, true, false, false,"mock reason");
             return ChatResponseDto.fail(response, chatResponseDto);
         }
@@ -357,12 +358,12 @@ public class ChatServiceImpl implements ChatService {
                 return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.", chatRoomId, userId);
             }
             memory.clear();
-            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요"));
+            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
             String reason = chain.execute(recommendPlans.get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
             memory.add(SystemMessage.from(feedbackPrompt));
-            String finalReply = "고객님께 다음 요금제들을 추천해 드립니다. "+reason+"\n\n" +
+            String finalReply = "고객님께 다음 요금제들을 추천해 드립니다. ["+reason+"]\n\n" +
                     recommendPlans.stream()
                             .map(recommend -> {
                                 PlanDto plan = recommend.getPlan();
@@ -392,7 +393,7 @@ public class ChatServiceImpl implements ChatService {
                             .collect(Collectors.joining("\n"));
 
 
-            finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 끝내셔도 됩니다.";
+            finalReply += "'\n 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 끝내셔도 됩니다.";
             saveChatMessage(userId, currentChatRoom, finalReply, true, true,false, reason);
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
@@ -486,7 +487,7 @@ public class ChatServiceImpl implements ChatService {
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
 
             memory.clear();
-            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천되었습니다\" 로 끝나야해요."));
+            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
             String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -497,33 +498,34 @@ public class ChatServiceImpl implements ChatService {
 
            return chatResponseDto;
         }
-
+        //feedback 추천
         if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
-            log.info("feedback 진입" + message);
+            log.info("feedback 진입 : " + message);
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
+            log.info("feedback 코드 : " + feedBackCode + "feedback의 감정 : " + sentiment);
             Long sentimentCode = 1L;
             if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
-            log.info("감지된 keyword(keyword추천이 아니라면 null) : "+this.extractedKeyword);
+            log.info("감지된 keyword( keyword추천이 아니라면 null) : "+this.extractedKeyword);
             FeedBackDto feedBackDto = FeedBackDto.builder()
                     .keyword(this.extractedKeyword)
                     .sentimentCode(sentimentCode)
                     .detailCode(feedBackCode)
                     .build();
             RecommendationResponseDto recommendationResponseDto2= null;
-            if(recommendPlans == null){ // 정보수집 기반 추천 피드백
-                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
-            }else{//키워드 기반 추천 피드백
-                recommendationResponseDto2= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
+            if(recommendPlans == null){ // 정보수집 기반 추천의 피드백
+                recommendationResponseDto= this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendationResponseDto.getRecommendPlans().get(0).getPlan().getPlanId());
+            }else{//키워드 기반 추천의 피드백
+                recommendationResponseDto = this.sendFeedBackToRecommendationModule(feedBackDto,userId,recommendPlans.get(0).getPlan().getPlanId());
             }
-
+            //추천 이유 받는 prompt로 전환
             memory.clear();
-            memory.add(SystemMessage.from(response+"이러한 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천되었습니다\" 로 끝나야해요."));
-            String reason = chain.execute(recommendationResponseDto2.getRecommendPlans().get(0).toString());
+            memory.add(SystemMessage.from(message+" 라는 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 (피드백이 반영되었음을 어필) 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
+            String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
             memory.add(SystemMessage.from(feedbackPrompt));
             boolean isFeedback = true;
-            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto2,userId,currentChatRoom,chatRoomId, isFeedback,reason);
+            chatResponseDto = generatePlanRecommendReply(recommendationResponseDto,userId,currentChatRoom,chatRoomId, isFeedback,reason);
 
             return chatResponseDto;
         }
@@ -726,13 +728,13 @@ public class ChatServiceImpl implements ChatService {
                 .collect(Collectors.joining("\n"));
         if(isFeedback){
             finalReply = String.format(
-                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다."+reason+ "\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 그만두시려면 \"끝\"이라고 해주세요",
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.["+reason+ "]\n\n%s 이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 그만두시려면 \"끝\"이라고 해주세요",
                     recommendationsText
             );
 
         }else{
             finalReply = String.format(
-                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다."+reason+"\n\n%s<br> 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
+                    "고객님의 통신 성향을 바탕으로 다음 요금제들을 추천해 드립니다.["+reason+"]\n\n%s 이 요금제에 대해서 평가 해주세요! 괜찮은 요금제 같나요?\",",
                     recommendationsText
             );
         }
@@ -759,9 +761,9 @@ public class ChatServiceImpl implements ChatService {
         log.debug("타임스탬프 변환 성공: {} -> {}", chatMessage.getTimestamp(), localDateTime);
         log.info(
                 "message : "  + chatMessage.getMessage() +
-                "isplanshow : " + chatMessage.isPlanShow() +
-                "isRecommend : " + chatMessage.isRecommend()+
-                "recommendreason : " +  chatMessage.getRecommendReason());
+                " isplanshow : " + chatMessage.isPlanShow() +
+                " isRecommend : " + chatMessage.isRecommend()+
+                " recommendreason : " +  chatMessage.getRecommendReason());
         return  ChatHistoryResponseDto.builder()
                     .messageId(chatMessage.getId())
                     .content(chatMessage.getMessage())
