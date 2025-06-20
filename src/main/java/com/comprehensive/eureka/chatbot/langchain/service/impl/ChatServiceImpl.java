@@ -73,6 +73,7 @@ public class ChatServiceImpl implements ChatService {
     private String userPasswordPrompt;
     private String jsonExtractionPrompt;
     private String keywordExtractionPrompt;
+    private String recommendReasonPrompt;
     private String planPrompt;
 
     private final BadwordServiceImpl badWordService;
@@ -118,6 +119,7 @@ public class ChatServiceImpl implements ChatService {
             try (InputStream in = systemResource5.getInputStream()) {
                 this.planPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
+
 
             Resource jsonResource = new ClassPathResource("prompts/json-extraction-prompt.txt");
             try (InputStream in = jsonResource.getInputStream()) {
@@ -378,9 +380,10 @@ public class ChatServiceImpl implements ChatService {
                                 );
                             })
                             .collect(Collectors.joining("\n"));
-
+            //요금제와
             finalReply += " <br>이 요금제에 대해서 평가 해주세요! 가격, 데이터, 부가서비스 등 만족하시나요? 아니라면, 어떤 게 마음에 안드시는 지 알려주세요! 끝내셔도 됩니다.";
-
+//            String reason = chain.execute(finalReply + recommendReasonPrompt);
+//            log.info("추천 이유 : " + reason);
             saveChatMessage(userId, currentChatRoom, finalReply, true, true,false, "mock reason");
             return ChatResponseDto.builder()
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
@@ -713,7 +716,8 @@ public class ChatServiceImpl implements ChatService {
             );
         }
 
-
+//        String reason = chain.execute(finalReply + recommendReasonPrompt);
+//        log.info("추천 이유 : " + reason);
         ChatMessageDto chatMessageDto = saveChatMessage(userId, currentChatRoom, finalReply, true, true, false,"mock reason");
         return ChatResponseDto.builder()
                 .messageId(chatMessageDto.getMessageId())
@@ -734,20 +738,22 @@ public class ChatServiceImpl implements ChatService {
                 .toLocalDateTime();
 
         log.debug("타임스탬프 변환 성공: {} -> {}", chatMessage.getTimestamp(), localDateTime);
-        log.info("isplanshow : " + chatMessage.isPlanShow() +
+        log.info(
+                "message : "  + chatMessage.getMessage() +
+                "isplanshow : " + chatMessage.isPlanShow() +
                 "isRecommend : " + chatMessage.isRecommend()+
                 "recommendreason : " +  chatMessage.getRecommendReason());
-        return new ChatHistoryResponseDto(
-                chatMessage.getId(),
-                chatMessage.getMessage(),
-                chatMessage.getUserId(),
-                chatMessage.getChatRoom().getChatRoomId(),
-                chatMessage.isBot(),
-                localDateTime,
-                chatMessage.isPlanShow(),
-                chatMessage.isRecommend(),
-                chatMessage.getRecommendReason()
-        );
+        return  ChatHistoryResponseDto.builder()
+                    .messageId(chatMessage.getId())
+                    .content(chatMessage.getMessage())
+                    .senderUserId(chatMessage.getUserId())
+                    .chatRoomId(chatMessage.getChatRoom().getChatRoomId())
+                    .isBot(chatMessage.isBot())
+                    .timestamp( localDateTime)
+                    .isPlanShow(chatMessage.isPlanShow())
+                    .isRecommended(chatMessage.isRecommend())
+                    .recommendReason(chatMessage.getRecommendReason())
+                    .build();
     }
 
 
