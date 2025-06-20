@@ -26,5 +26,5 @@ public class PlanFilterRequestDto {
     @Builder.Default
     private List<Long> benefitIds = null;
     @Builder.Default
-    private boolean noBenefitsSelected = true;
+    private boolean noBenefitsSelected = false;
 }

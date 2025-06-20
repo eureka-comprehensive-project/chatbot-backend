@@ -3,13 +3,11 @@ package com.comprehensive.eureka.chatbot.langchain.entity;
 import com.comprehensive.eureka.chatbot.chatroom.entity.ChatRoom;
 import io.micrometer.common.lang.Nullable;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Data
+@Getter @Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
@@ -34,6 +32,8 @@ public class ChatMessage {
 
     @Nullable
     private boolean isRecommend;
+    @Nullable
+    private boolean isPlanShow;
     @Nullable
     private String recommendReason;
 }

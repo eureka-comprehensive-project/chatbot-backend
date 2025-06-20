@@ -18,4 +18,7 @@ public class ChatHistoryResponseDto {
     private Long chatRoomId;
     private boolean isBot;
     private LocalDateTime timestamp;
+    private boolean isRecommended;
+    private boolean isPlanShow;
+    private String recommendReason;
 }
