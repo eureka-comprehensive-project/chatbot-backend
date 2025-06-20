@@ -14,7 +14,7 @@ public class PlanFilterRequestDto {
     @Builder.Default
     private List<Long> categoryIds = null;
     @Builder.Default
-    private boolean allCategoriesSelected = false;
+    private boolean allCategoriesSelected = true;
     @Builder.Default
     private List<String> priceRanges = null;
     @Builder.Default
