@@ -34,7 +34,7 @@ public class RecommendClient {
     // 키워드 기반 추천
     public BaseResponseDto<List<RecommendPlanDto>> recommendByKeyword(String keyword) {
         String url = String.format(DomainConstant.RECOMMEND_DOMAIN+"/recommend/keyword/%s", keyword);
-        log.info("키워드를 추천 모듈로 전송 중: {}", keyword);
+        log.info("키워드를 추천 모듈로 전송 중 : {}", keyword);
 
         return webClientUtil.<List<RecommendPlanDto>>getWithPathVariable(
                 url,
@@ -45,11 +45,11 @@ public class RecommendClient {
     }
 
     //feedback 추천
-    public BaseResponseDto<RecommendationResponseDto> recommendAfterFeedback(FeedBackDto feedBackDto, Long userId, Long PlanId) {
+    public BaseResponseDto<RecommendationResponseDto> recommendAfterFeedback(FeedBackDto feedBackDto, Long userId, Long planId) {
 
-        String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/feedback/%s/%s", userId,PlanId);
-        log.info("feedback dto내의 keyword" + feedBackDto.getKeyword());
-        log.info("추천 모듈로 환경설정 전송 중: {}", feedBackDto.toString());
+        String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/feedback/%s/%s", userId,planId);
+        log.info("feedback dto 내의 keyword : {}",feedBackDto.getKeyword());
+        log.info("추천 모듈로 기존 planId 전송 중 : {}", planId);
         return webClientUtil.post2(
                 url,
                 feedBackDto,
