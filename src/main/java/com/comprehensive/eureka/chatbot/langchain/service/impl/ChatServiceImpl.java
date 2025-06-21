@@ -358,7 +358,7 @@ public class ChatServiceImpl implements ChatService {
                 return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.", chatRoomId, userId);
             }
             memory.clear();
-            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. "));
+            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 당신이 추천한 것처럼 대답하세요 한문장으로 정리해주세요. 현재 시제로 정리하세요"));
             String reason = chain.execute(recommendPlans.get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -487,7 +487,7 @@ public class ChatServiceImpl implements ChatService {
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
 
             memory.clear();
-            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. "));
+            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 당신이 추천한 것처럼 대답하세요 한문장으로 정리해주세요. 현재 시제로 정리하세요"));
             String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -519,7 +519,7 @@ public class ChatServiceImpl implements ChatService {
             }
             //추천 이유 받는 prompt로 전환
             memory.clear();
-            memory.add(SystemMessage.from(message+" 라는 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 (피드백이 반영되었음을 어필) 대답하세요 한문장으로 정리해주세요. "));
+            memory.add(SystemMessage.from(message+" 라는 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 (피드백이 반영되었음을 어필) 당신이 추천한 것처럼 대답하세요 한문장으로 정리해주세요. 현재 시제로 정리하세요"));
             String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
