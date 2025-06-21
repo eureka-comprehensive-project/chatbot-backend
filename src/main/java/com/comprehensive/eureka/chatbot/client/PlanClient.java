@@ -1,13 +1,15 @@
 package com.comprehensive.eureka.chatbot.client;
 
+
+import com.comprehensive.eureka.chatbot.client.dto.request.FindPlanBenefitIdRequestDto;
 import com.comprehensive.eureka.chatbot.client.dto.request.PlanFilterRequestDto;
+import com.comprehensive.eureka.chatbot.client.dto.request.UserPlanRequestDto;
 import com.comprehensive.eureka.chatbot.client.dto.response.FilterListResponseDto;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
 import com.comprehensive.eureka.chatbot.common.exception.DomainException;
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
 import com.comprehensive.eureka.chatbot.constant.DomainConstant;
 import com.comprehensive.eureka.chatbot.langchain.dto.BenefitRequestDto;
-import com.comprehensive.eureka.chatbot.langchain.dto.PlanDto;
 import com.comprehensive.eureka.chatbot.util.WebClientUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -125,6 +127,58 @@ public class PlanClient {
 
         } catch (Exception e) {
             log.error("요금제 필터 요청 실패", e);
+            throw new DomainException(ErrorCode.DOMAIN_NOT_CHANGED);
+        }
+    }
+
+    public Long getBenefitSetId(List<Long> benefitIds){
+        log.info("getBenefitSetIds : " + benefitIds.toString());
+        String apiUrl = DomainConstant.PLAN_DOMAIN + "/plan/benefit-group";
+        log.info("apiUrl : " + apiUrl);
+        try{
+            BaseResponseDto<Long> baseResponse = webClientUtil.post(
+                    apiUrl,
+                    benefitIds,
+                    new ParameterizedTypeReference<BaseResponseDto<Long>>() {}
+            );
+            return baseResponse.getData();
+        } catch (Exception e) {
+            log.error("요금제 변경 요청 중 실패", e);
+            throw new DomainException(ErrorCode.DOMAIN_NOT_CHANGED);
+        }
+
+    }
+
+    public Long getPlanBenefitId(FindPlanBenefitIdRequestDto findPlanBenefitIdRequestDto){
+        log.info("findPlanBenefitGroupIdDto : " + findPlanBenefitIdRequestDto.toString());
+        String apiUrl = DomainConstant.PLAN_DOMAIN + "/plan/findPlanBenefitGroupId";
+        log.info("apiUrl : " + apiUrl);
+        try{
+            BaseResponseDto<Long> baseResponse = webClientUtil.post(
+                    apiUrl,
+                    findPlanBenefitIdRequestDto,
+                    new ParameterizedTypeReference<BaseResponseDto<Long>>() {}
+            );
+            return baseResponse.getData();
+        } catch (Exception e) {
+            log.error("요금제 변경 요청 중 실패", e);
+            throw new DomainException(ErrorCode.DOMAIN_NOT_CHANGED);
+        }
+
+    }
+
+    public void changeUserPlan(UserPlanRequestDto userPlanRequestDto){
+        log.info("findPlanBenefitGroupIdDto : " + userPlanRequestDto.toString());
+        String apiUrl = DomainConstant.PLAN_DOMAIN + "/plan/findPlanBenefitGroupId";
+        log.info("apiUrl : " + apiUrl);
+        try{
+            BaseResponseDto<Void> baseResponse = webClientUtil.post(
+                    apiUrl,
+                    userPlanRequestDto,
+                    new ParameterizedTypeReference<BaseResponseDto<Void>>() {}
+            );
+        } catch (Exception e) {
+            log.error("요금제 변경 요청 중 실패", e);
             throw new DomainException(ErrorCode.DOMAIN_NOT_CHANGED);
         }
     }

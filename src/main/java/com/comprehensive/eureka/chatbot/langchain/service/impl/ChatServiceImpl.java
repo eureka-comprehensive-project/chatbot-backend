@@ -13,12 +13,14 @@ import com.comprehensive.eureka.chatbot.client.dto.response.FilterListResponseDt
 import com.comprehensive.eureka.chatbot.client.dto.response.GetUserProfileDetailResponseDto;
 import com.comprehensive.eureka.chatbot.client.dto.response.LoginUserResponseDto;
 import com.comprehensive.eureka.chatbot.common.dto.BaseResponseDto;
+import com.comprehensive.eureka.chatbot.common.exception.ChatBotException;
 import com.comprehensive.eureka.chatbot.common.exception.ChatException;
 import com.comprehensive.eureka.chatbot.common.exception.ErrorCode;
 import com.comprehensive.eureka.chatbot.langchain.dto.*;
 import com.comprehensive.eureka.chatbot.langchain.entity.ChatMessage;
 import com.comprehensive.eureka.chatbot.langchain.repository.ChatMessageRepository;
 import com.comprehensive.eureka.chatbot.langchain.service.ChatService;
+import com.comprehensive.eureka.chatbot.langchain.service.util.ParsingPlansUtil;
 import com.comprehensive.eureka.chatbot.sentiment.service.PromptServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -47,7 +49,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.comprehensive.eureka.chatbot.common.exception.ErrorCode.CHATBOT_PROMPT_ERROR;
 
 @Slf4j
 @Service
@@ -76,6 +82,7 @@ public class ChatServiceImpl implements ChatService {
     private String recommendReasonPrompt;
     private String planPrompt;
     private String feedbackPrompt;
+    private String planChangePrompt;
     private final BadwordServiceImpl badWordService;
     private final PromptServiceImpl promptService;
 
@@ -91,6 +98,8 @@ public class ChatServiceImpl implements ChatService {
     Set<String> removeTarget;
     ConversationalChain chain;
     String extractedKeyword;
+
+
     @PostConstruct
     public void loadPrompts() {
         try {
@@ -122,6 +131,10 @@ public class ChatServiceImpl implements ChatService {
             Resource systemResource6 = new ClassPathResource("prompts/feedback-prompt.txt");
             try (InputStream in = systemResource6.getInputStream()) {
                 this.feedbackPrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            Resource systemResource7 = new ClassPathResource("prompts/plan-change-prompt.txt");
+            try (InputStream in = systemResource7.getInputStream()) {
+                this.planChangePrompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
 
 
@@ -264,24 +277,24 @@ public class ChatServiceImpl implements ChatService {
             String email = getUserProfileDetailResponseDto.getEmail();
 
             // 비밀번호 검증
-            LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
-                    .email(email)
-                    .password(password)
-                    .build();
-
-            log.info("loginUserRequestDto 생성: {}", loginUserRequestDto);
-            BaseResponseDto<LoginUserResponseDto> authResponse = authClient.verifyPassword(loginUserRequestDto);
-            log.info("[비밀번호 검증 응답] statusCode: {}, message: {}", authResponse.getStatusCode(), authResponse.getMessage());
-
-            if(authResponse.getStatusCode() != 200){ // 비밀번호가 맞지 않는 경우
-                log.info("[비밀번호 검증 실패] 사용자 입력 비밀번호가 틀림");
-                ChatResponseDto context = ChatResponseDto.builder()
-                        .chatRoomId(chatRoomId)
-                        .userId(userId)
-                        .build();
-                return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
-            }
-            log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
+//            LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
+//                    .email(email)
+//                    .password(password)
+//                    .build();
+//
+//            log.info("loginUserRequestDto 생성: {}", loginUserRequestDto);
+//            BaseResponseDto<LoginUserResponseDto> authResponse = authClient.verifyPassword(loginUserRequestDto);
+//            log.info("[비밀번호 검증 응답] statusCode: {}, message: {}", authResponse.getStatusCode(), authResponse.getMessage());
+//
+//            if(authResponse.getStatusCode() != 200){ // 비밀번호가 맞지 않는 경우
+//                log.info("[비밀번호 검증 실패] 사용자 입력 비밀번호가 틀림");
+//                ChatResponseDto context = ChatResponseDto.builder()
+//                        .chatRoomId(chatRoomId)
+//                        .userId(userId)
+//                        .build();
+//                return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
+//            }
+//            log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
 
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
             chatResponseDto = ChatResponseDto.builder()
@@ -331,6 +344,16 @@ public class ChatServiceImpl implements ChatService {
 
         }
 
+        if(response.contains("[사용자 요금제 변경 준비 완료]")){
+            String plansToChoose = chatResponseDto.getMessage();
+            log.info(plansToChoose);
+            memory.clear();
+            memory.add(SystemMessage.from(chatResponseDto.getMessage() + planChangePrompt));
+            Long planId = ParsingPlansUtil.getPlanName(chatResponseDto.getMessage(),plansToChoose,planClient);
+
+
+            return ChatResponseDto.of("요금제가 변경되었습니다.",chatRoomId,userId);
+        }
 
         if (response.contains("직업을 확인하였습니다") || response.contains("키워드를 확인하였습니다")) {
 
@@ -358,7 +381,7 @@ public class ChatServiceImpl implements ChatService {
                 return ChatResponseDto.of("추천드릴 요금제를 찾지 못했습니다. 다른 키워드로 다시 시도해 주세요.", chatRoomId, userId);
             }
             memory.clear();
-            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
+            memory.add(SystemMessage.from(this.extractedKeyword+"을 위한 요금제로 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. "));
             String reason = chain.execute(recommendPlans.get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -476,7 +499,7 @@ public class ChatServiceImpl implements ChatService {
 
             if (!valid) {
                 sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 whattodo로 진입
-                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. <br> 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. \n 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
                 saveChatMessage(userId, currentChatRoom, failMessage, true, false, false,"mock reason");
                 return ChatResponseDto.of(failMessage, chatRoomId, userId);
             }
@@ -487,7 +510,7 @@ public class ChatServiceImpl implements ChatService {
             recommendationResponseDto = sendToRecommendationModule(preference, userId);
 
             memory.clear();
-            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
+            memory.add(SystemMessage.from(preference.toString()+"이러한 성향을 가진 사용자에게 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 대답하세요 한문장으로 정리해주세요. "));
             String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -498,6 +521,8 @@ public class ChatServiceImpl implements ChatService {
 
            return chatResponseDto;
         }
+
+
         //feedback 추천
         if(JsonFeedbackParser.parseFeedbackResponse(response) != null){
             log.info("feedback 진입 : " + message);
@@ -519,7 +544,7 @@ public class ChatServiceImpl implements ChatService {
             }
             //추천 이유 받는 prompt로 전환
             memory.clear();
-            memory.add(SystemMessage.from(message+" 라는 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 (피드백이 반영되었음을 어필) 대답하세요 한문장으로 정리해주세요. 단, 마지막에는 꼭 \"때문에 추천합니다\" 로 끝나야해요."));
+            memory.add(SystemMessage.from(message+" 라는 피드백을 가진 사용자에게 다시 어떤 요금제를 추천해 줬어요. 사용자가 그 요금제를 알려주면, 챗봇이 그 요금제를 추천한 이유가 무엇일지 예상해서 (피드백이 반영되었음을 어필) 대답하세요 한문장으로 정리해주세요. "));
             String reason = chain.execute(recommendationResponseDto.getRecommendPlans().get(0).toString());
             log.info("추천 이유 : " + reason);
             memory.clear();
@@ -535,6 +560,7 @@ public class ChatServiceImpl implements ChatService {
 
     }
 
+    //utils
     private ChatResponseDto showPlansByCategory(String value) {
         List<FilterListResponseDto> filterListResponseDtoList;
         log.info("value : " + value);

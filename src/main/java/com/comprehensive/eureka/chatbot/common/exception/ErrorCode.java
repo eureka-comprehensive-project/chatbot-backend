@@ -33,6 +33,7 @@ public enum ErrorCode {
 
     // 채팅 메시지 조회 에러
     CHAT_MESSAGE_RETRIEVE_FAILED      (20033, "CHAT_MESSAGE_RETRIEVE_FAILED",      "채팅 메시지를 조회할 수 없습니다."),
+    CHAT_NOT_FOUND_PLANS(20036, "NOT_FOUND_PLANS","요금제를 찾기에 실패"),
     //챗봇 답변 생성 에러
     CHATBOT_PROMPT_ERROR(20034,"CHATBOT_PROMPT_ERROR","챗봇 답변을 생성 중 에러 발생했습니다."),
     //외부 api호출 오류
