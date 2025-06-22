@@ -238,7 +238,7 @@ public class ChatServiceImpl implements ChatService {
             }
         } else if (response.contains("[prompt전환]5번으로 예상")) {
             sessionManager.getPromptProcessing().put(chatRoomId, false);
-            response = "4가지 중 하나를 선택하세요 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+            response = "어떤 도움을 드릴까요? {요금제 추천, 요금제 조회, 사용자 정보 알기, 심심풀이} 선택해주세요! ";
             saveChatMessage(userId, currentChatRoom, response, true, false, false,"mock reason");
             return ChatResponseDto.fail(response, chatResponseDto);
         }
@@ -288,7 +288,7 @@ public class ChatServiceImpl implements ChatService {
                     .messageId(chatMessageRepository.findTopByOrderByIdDesc().getId())
                     .userId(userId)
                     .chatRoomId(chatRoomId)
-                    .message(getUserProfileDetailResponseDto.toString() + "\n 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요 ")
+                    .message(getUserProfileDetailResponseDto.toString() + "\n 어떤 도움을 드릴까요? {요금제 추천, 요금제 조회, 사용자 정보 알기, 심심풀이} 선택해주세요!  ")
                     .isBot(true)
                     .isRecommended(false)
                     .recommendationReason("mock reason")
@@ -476,7 +476,7 @@ public class ChatServiceImpl implements ChatService {
 
             if (!valid) {
                 sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 whattodo로 진입
-                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. \n 저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+                String failMessage = "통신성향 분석 또는 요금제 추천 중 오류가 발생했습니다. 다시 시도해 주세요. \n 어떤 도움을 드릴까요? {요금제 추천, 요금제 조회, 사용자 정보 알기, 심심풀이} 선택해주세요! ";
                 saveChatMessage(userId, currentChatRoom, failMessage, true, false, false,"mock reason");
                 return ChatResponseDto.of(failMessage, chatRoomId, userId);
             }
@@ -797,7 +797,7 @@ public class ChatServiceImpl implements ChatService {
         log.info("sessionManager를 호출하여 task process 상태를 false로 만들었습니다.");
         memory.clear();
         memory.add(SystemMessage.from(whattodoPrompt));
-        String message = "저랑 무엇을 하길 원하나요? 요금제 추천, 사용자 정보 알기, 심심풀이, 요금제 조회 등등 말해봐요";
+        String message = "어떤 도움을 드릴까요? {요금제 추천, 요금제 조회, 사용자 정보 알기, 심심풀이} 선택해주세요!";
         this.extractedKeyword = null;
         saveChatMessage(userId, currentChatRoom, message, true, false, false,"mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);
