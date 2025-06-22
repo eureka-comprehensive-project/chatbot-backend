@@ -47,9 +47,11 @@ public class RecommendClient {
     //feedback 추천
     public BaseResponseDto<RecommendationResponseDto> recommendAfterFeedback(FeedBackDto feedBackDto, Long userId, Long planId) {
         log.info("feedback dto 내의 detailCode : "+feedBackDto.getDetailCode());
+        log.info("feedback dto 내의 sentimentCode : "+feedBackDto.getSentimentCode());
+        log.info("feedback dto 내의 keyword : " +feedBackDto.getKeyword());
+        log.info("feedback 보내는 userId : " + userId);
+        log.info("feedback 보내는 planId : " + planId);
         String url = String.format(DomainConstant.RECOMMEND_DOMAIN + "/recommend/feedback/%s/%s", userId,planId);
-        log.info("feedback dto 내의 keyword : {}",feedBackDto.getKeyword());
-        log.info("추천 모듈로 기존 planId 전송 중 : {}", planId);
         return webClientUtil.post2(
                 url,
                 feedBackDto,

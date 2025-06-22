@@ -253,35 +253,11 @@ public class ChatServiceImpl implements ChatService {
 
         //지금부터는 gpt의 답변을 중간에 가로 채서 서버 처리 해야 하는 경우를 처리합니다. ( 1. 사용자의 비밀번호가 준비 됐을 때-> api 호출 후 return) , ( 2. 요금제 추천 준비가 됐을 때 -> api 호출 ), (3.키워드 감지 ) (4. 피드백 감지 -> recommend api호출)
         if(response.contains("[사용자 비밀번호 준비 완료]")){
-//            log.info("사용자 비밀번호 준비 완료");
-//
-//            String password = response.replace("[사용자 비밀번호 준비 완료] : ","");
-//
-//            // userId로 정보 조회 -> email
+
             GetByIdRequestDto getByIdRequestDto = new GetByIdRequestDto(userId);
 
             GetUserProfileDetailResponseDto getUserProfileDetailResponseDto = userClient.getUserProfile(getByIdRequestDto).getData();
-//            String email = getUserProfileDetailResponseDto.getEmail();
-//
-//            // 비밀번호 검증
-//            LoginUserRequestDto loginUserRequestDto = LoginUserRequestDto.builder()
-//                    .email(email)
-//                    .password(password)
-//                    .build();
-//
-//            log.info("loginUserRequestDto 생성: {}", loginUserRequestDto);
-//            BaseResponseDto<LoginUserResponseDto> authResponse = authClient.verifyPassword(loginUserRequestDto);
-//            log.info("[비밀번호 검증 응답] statusCode: {}, message: {}", authResponse.getStatusCode(), authResponse.getMessage());
-//
-//            if(authResponse.getStatusCode() != 200){ // 비밀번호가 맞지 않는 경우
-//                log.info("[비밀번호 검증 실패] 사용자 입력 비밀번호가 틀림");
-//                ChatResponseDto context = ChatResponseDto.builder()
-//                        .chatRoomId(chatRoomId)
-//                        .userId(userId)
-//                        .build();
-//                return ChatResponseDto.fail("비밀번호가 올바르지 않습니다. 다시 시도해주세요.", context);
-//            }
-//            log.info("[비밀번호 검증 성공] 사용자 인증 완료, 사용자 정보 제공 시작");
+
 
             sessionManager.getPromptProcessing().put(chatRoomId, false); //이 prompt 를 종료시키고 다시 whattodo로
             chatResponseDto = ChatResponseDto.builder()
@@ -504,7 +480,8 @@ public class ChatServiceImpl implements ChatService {
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
             log.info("feedback 코드 : " + feedBackCode + "feedback의 감정 : " + sentiment);
             Long sentimentCode = 1L;
-            if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람") ||sentiment.equals("슬픔")) sentimentCode=2L;
+            if(sentiment.equals("혐오")||sentiment.equals("놀람") ||sentiment.equals("슬픔")) sentimentCode=2L;
+            if(sentiment.equals("분노")) sentimentCode = 3L;
             log.info("감지된 keyword( keyword추천이 아니라면 null) : "+this.extractedKeyword);
             FeedBackDto feedBackDto = FeedBackDto.builder()
                     .keyword(this.extractedKeyword)
