@@ -385,6 +385,8 @@ public class ChatServiceImpl implements ChatService {
 
         // 통신성향 수집 완료 신호 감지
         if (response.contains("통신성향을 모두 파악했습니다")) {
+            this.extractedKeyword = null;
+            log.info(this.extractedKeyword);
             JsonNode root = null;
             String rawJson;
             final int MAX_RETRIES = 2;
@@ -775,7 +777,6 @@ public class ChatServiceImpl implements ChatService {
         memory.clear();
         memory.add(SystemMessage.from(whattodoPrompt));
         String message = "어떤 도움을 드릴까요? {요금제 추천, 요금제 조회, 사용자 정보 알기, 심심풀이} 선택해주세요!";
-        this.extractedKeyword = null;
         saveChatMessage(userId, currentChatRoom, message, true, false, false,"mock reason");
         return ChatResponseDto.of(message, chatRoomId, userId);
     }
