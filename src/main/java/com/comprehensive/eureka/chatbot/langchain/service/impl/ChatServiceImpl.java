@@ -504,7 +504,7 @@ public class ChatServiceImpl implements ChatService {
             Long feedBackCode =  JsonFeedbackParser.parseFeedbackResponse(response).getFeedbackCode();
             log.info("feedback 코드 : " + feedBackCode + "feedback의 감정 : " + sentiment);
             Long sentimentCode = 1L;
-            if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람")) sentimentCode=2L;
+            if(sentiment.equals("분노") || sentiment.equals("혐오")||sentiment.equals("놀람") ||sentiment.equals("슬픔")) sentimentCode=2L;
             log.info("감지된 keyword( keyword추천이 아니라면 null) : "+this.extractedKeyword);
             FeedBackDto feedBackDto = FeedBackDto.builder()
                     .keyword(this.extractedKeyword)
