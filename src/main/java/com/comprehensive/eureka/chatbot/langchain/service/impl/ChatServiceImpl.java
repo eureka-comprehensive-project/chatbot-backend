@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private Environment environment;
+    private final Environment environment;
     private final OpenAiChatModel baseOpenAiModel;
     private final ChatMessageRepository chatMessageRepository;
     private final ObjectMapper objectMapper;
