@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 public class ChatRoomListRequestDto {
     private Long userId;
     private Long chatRoomId;
+    @Builder.Default
     private int size = 10;
 }
