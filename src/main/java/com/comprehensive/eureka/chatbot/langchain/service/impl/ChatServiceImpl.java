@@ -550,7 +550,7 @@ public class ChatServiceImpl implements ChatService {
 
     }
 
-    private boolean badWordCheck(Long userId, String message, Long sentAt) {
+    public boolean badWordCheck(Long userId, String message, Long sentAt) {
         //금칙어 포함 시 금칙어 사용 기록에 저장 ( admin 모듈 ) 후 처리
         log.info("금칙어 check 중 ... message : " + message, "sentAt : " + sentAt );
         boolean check = badWordService.checkBadWord(message);
@@ -564,7 +564,7 @@ public class ChatServiceImpl implements ChatService {
         return false;
     }
 
-    private ChatMessageDto saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecommend, boolean isPlanShow, String recommendReason) {
+    public ChatMessageDto saveChatMessage(Long userId, ChatRoom chatRoom, String message, boolean isBot, boolean isRecommend, boolean isPlanShow, String recommendReason) {
         log.debug("채팅 메시지 저장 준비: 사용자 ID={}, 채팅방 ID={}, 챗봇 여부={}, 메시지='{}'", userId, chatRoom.getChatRoomId(), isBot, message);
 
         // LocalDateTime -> 유닉스 타임스탬프 (초 단위)
