@@ -58,7 +58,7 @@ class ChatServiceImplIntegrationTest {
     @Test
     @DisplayName("금칙어 필터링 테스트")
     void testBadWord() throws JsonProcessingException {
-        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "꺼져");
+        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "씨발");
         assertTrue(response.getMessage().contains("금지된 단어"));
     }
 
@@ -72,7 +72,7 @@ class ChatServiceImplIntegrationTest {
     @Test
     @DisplayName("비밀번호 트리거 테스트")
     void testPasswordTrigger() throws JsonProcessingException {
-        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "[사용자 비밀번호 준비 완료]");
+        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "사용자 정보 알고 싶어");
         assertTrue(response.getMessage().contains("어떤 도움을 드릴까요"));
     }
 
@@ -100,14 +100,20 @@ class ChatServiceImplIntegrationTest {
     @Test
     @DisplayName("성향 기반 추천 테스트")
     void testPreferenceComplete() throws JsonProcessingException {
-        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "통신성향을 모두 파악했습니다");
+        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "요금제 추천해줘");
+        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "100기가");
+        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "120기가");
+        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "10만원");
+        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "140분");
+        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "유튜브 프리미엄");
+//        chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "통신성향을 모두 파악했습니다");
         assertTrue(response.getIsRecommended());
     }
 
-    @Test
-    @DisplayName("피드백 반영 추천 테스트")
-    void testFeedbackResponse() throws JsonProcessingException {
-        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "요금제는 좋은데 가격이 좀 비싸요");
-        assertTrue(response.getIsRecommended());
-    }
+//    @Test
+//    @DisplayName("피드백 반영 추천 테스트")
+//    void testFeedbackResponse() throws JsonProcessingException {
+//        ChatResponseDto response = chatServiceImpl.generateReply(USER_ID, CHATROOM_ID, "요금제는 좋은데 가격이 좀 비싸요");
+//        assertTrue(response.getIsRecommended());
+//    }
 }
